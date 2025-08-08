@@ -28,7 +28,9 @@ app.use(express.static("public"));
 app.use(cookieParser());
 
 import Routes from "./routes/index.js";
+import adminRoutes from "./routes/admin.routes.js";
 app.use("/api", Routes);
+app.use("/api", adminRoutes);
 
 app.post("/testing", (req, res) => {
   console.log("Testing");

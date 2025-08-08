@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { User } from "../models/user.model.js";
 import conf from "../conf/conf.js";
+import seedDashboardData from "../seeds/dashboardSeeder.js";
 
 // Connect to database
 const connectDB = async () => {
@@ -25,7 +26,12 @@ const seedAdminUser = async () => {
     }
 
     // Buat admin default
+    const timestamp = Date.now().toString();
+    const random = Math.random().toString(36).substr(2, 5);
+    const adminUuid = `ADMIN_${timestamp}_${random}`.toUpperCase();
+
     const adminUser = new User({
+      uuid: adminUuid,
       username: "admin",
       password: "admin123", // Password akan di-hash otomatis oleh pre-save middleware
       name: "Administrator",
@@ -49,6 +55,7 @@ const runSeeder = async () => {
 
   await connectDB();
   await seedAdminUser();
+  await seedDashboardData();
 
   console.log("Seeder completed!");
   process.exit(0);

@@ -1,5 +1,8 @@
 import mongoose from "mongoose";
 import conf from "../conf/conf.js";
+import { User } from "../models/user.model.js";
+import { Product } from "../models/product.model.js";
+import { Deposit } from "../models/deposit.model.js";
 
 const connectDB = async () => {
   try {
@@ -16,3 +19,4 @@ const connectDB = async () => {
 };
 
 export default connectDB;
+export { User, Product, Deposit };

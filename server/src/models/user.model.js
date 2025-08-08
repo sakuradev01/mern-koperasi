@@ -3,6 +3,12 @@ import bcrypt from "bcryptjs";
 
 const userSchema = new Schema(
   {
+    uuid: {
+      type: String,
+      unique: true,
+      required: true,
+      trim: true,
+    },
     username: {
       type: String,
       required: true,
@@ -38,15 +44,24 @@ const userSchema = new Schema(
 
 // Hash password sebelum disimpan
 userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
-
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error);
+  // Generate UUID jika baru
+  if (this.isNew && !this.uuid) {
+    const timestamp = Date.now().toString();
+    const random = Math.random().toString(36).substr(2, 5);
+    this.uuid = `USER_${timestamp}_${random}`.toUpperCase();
   }
+
+  // Hash password
+  if (this.isModified("password")) {
+    try {
+      const salt = await bcrypt.genSalt(10);
+      this.password = await bcrypt.hash(this.password, salt);
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  next();
 });
 
 // Method untuk compare password
