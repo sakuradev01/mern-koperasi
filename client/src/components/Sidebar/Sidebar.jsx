@@ -77,7 +77,21 @@ const Sidebar = () => {
           <span className="font-medium">{item.name}</span>
         </Link>
         {item.children && (
-          <div className="ml-4 mt-1">{renderMenuItems(item.children)}</div>
+          <div className="ml-4 mt-1">
+            {item.children.map((child) => (
+              <Link
+                key={child.name}
+                to={child.path}
+                className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-200 ${
+                  isActive(child.path)
+                    ? "bg-indigo-600 text-white"
+                    : "text-gray-400 hover:bg-gray-700 hover:text-white"
+                }`}
+              >
+                <span className="text-sm">{child.name}</span>
+              </Link>
+            ))}
+          </div>
         )}
       </div>
     ));
