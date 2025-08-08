@@ -17,23 +17,11 @@ app.use(bodyParser.json());
 
 app.use(
   cors({
-    origin: (origin, callback) => {
-      const allowedOrigins = [
-        conf.CORS_ORIGIN1.replace(/\/$/, ""),
-        conf.CORS_ORIGIN2.replace(/\/$/, ""),
-        conf.CORS_ORIGIN3.replace(/\/$/, ""),
-      ];
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error(`Origin ${origin} not allowed by CORS`));
-      }
-    },
+    origin: ["http://localhost:5173", "http://localhost:3000"],
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   })
 );
-
 
 app.use(express.json());
 app.use(express.static("public"));

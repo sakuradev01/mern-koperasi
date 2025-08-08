@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
-import { User } from "../models/user.model.js";
+import { findUserById } from "../db/mockData.js";
 
-// Middleware untuk verifikasi JWT Token
+// Middleware untuk verifikasi JWT Token dengan Mock Data
 export const verifyToken = async (req, res, next) => {
   try {
     // Ambil token dari header Authorization
@@ -21,11 +21,11 @@ export const verifyToken = async (req, res, next) => {
     // Verifikasi token
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET || "your-secret-key"
+      process.env.JWT_SECRET || "koperasi-secret-key-2024"
     );
 
-    // Cari user berdasarkan ID dari token
-    const user = await User.findById(decoded.userId);
+    // Cari user berdasarkan ID dari token di mock data
+    const user = findUserById(decoded.userId);
 
     if (!user) {
       return res.status(401).json({

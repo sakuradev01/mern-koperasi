@@ -1,72 +1,163 @@
 import { User } from "../models/user.model.js";
+import jwt from "jsonwebtoken";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
-const filterUserData = (user) => ({
-  name: user.name,
-  email: user.email,
-  age: user.age,
-  gender: user.gender,
-  address: user.address,
-  phone: user.phone,
-  picture: user.picture,
-});
+// Generate JWT Token
+const generateToken = (userId) => {
+  return jwt.sign({ userId }, process.env.JWT_SECRET || "your-secret-key", {
+    expiresIn: "7d",
+  });
+};
 
-export const loginUser = async (req, res) => {
-  // console.log(req.user);
-  // console.log(req.body); // userRole
+// Login User
+export const loginUser = asyncHandler(async (req, res) => {
+  const { username, password } = req.body;
+
+  // Validasi input
+  if (!username || !password) {
+    return res.status(400).json({
+      success: false,
+      message: "Username dan password harus diisi",
+    });
+  }
 
   try {
-    const { uid, name, email, picture, email_verified } = req.user;
-    const { userRole } = req.body;
+    // Cari user berdasarkan username
+    const user = await User.findOne({ username });
 
-    if (!email_verified) {
-      return res.status(400).json({ message: "Email is not verified." });
-    }
-
-    // Log incoming user details for debugging purposes
-    // console.log("Authenticated user:", {
-    //   uid,
-    //   name,
-    //   email,
-    //   picture,
-    //   email_verified,
-    // });
-
-    // Check if the user exists in the database
-    let user = await User.findOne({ uid });
-
-    // If user does not exist and userRole is "student", create a new user
-    if (!user && userRole === "student") {
-      user = new User({ uid, name, email, picture, userType: "student" });
-      await user.save();
-      //   console.log("New student user created:", user);
-      return res.status(201).json({
-        message: "User created successfully.",
-        user: filterUserData(user),
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Username atau password salah",
       });
     }
 
-    // If the user already exists, log them in
-    if (user) {
-      //   console.log("Existing user logged in:", user);
-      return res.status(200).json({
-        message: "User logged in successfully.",
-        user: filterUserData(user),
+    // Cek apakah user aktif
+    if (!user.isActive) {
+      return res.status(401).json({
+        success: false,
+        message: "Akun tidak aktif",
       });
     }
 
-    // If the userRole is not "student", don't create the user and send an error
-    return res.status(400).json({
-      message: "User role must be 'student' to create a new account.",
+    // Verifikasi password
+    const isPasswordValid = await user.comparePassword(password);
+
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: "Username atau password salah",
+      });
+    }
+
+    // Generate JWT token
+    const token = generateToken(user._id);
+
+    // Return success response
+    res.status(200).json({
+      success: true,
+      message: "Login berhasil",
+      data: {
+        user: user.toJSON(),
+        token,
+      },
     });
   } catch (error) {
-    console.error("Error during user login:", error);
-
-    // Send a detailed error response
-    return res.status(500).json({
-      message: "An error occurred during login.",
+    console.error("Login error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Terjadi kesalahan server",
       error: error.message,
     });
   }
-};
+});
 
-export { filterUserData };
+// Register User (optional, untuk staff)
+export const registerUser = asyncHandler(async (req, res) => {
+  const { username, password, name, role = "staff" } = req.body;
+
+  // Validasi input
+  if (!username || !password || !name) {
+    return res.status(400).json({
+      success: false,
+      message: "Username, password, dan nama harus diisi",
+    });
+  }
+
+  try {
+    // Cek apakah username sudah ada
+    const existingUser = await User.findOne({ username });
+
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "Username sudah digunakan",
+      });
+    }
+
+    // Buat user baru
+    const newUser = new User({
+      username,
+      password,
+      name,
+      role,
+    });
+
+    await newUser.save();
+
+    // Generate JWT token
+    const token = generateToken(newUser._id);
+
+    res.status(201).json({
+      success: true,
+      message: "Registrasi berhasil",
+      data: {
+        user: newUser.toJSON(),
+        token,
+      },
+    });
+  } catch (error) {
+    console.error("Register error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Terjadi kesalahan server",
+      error: error.message,
+    });
+  }
+});
+
+// Get Current User
+export const getCurrentUser = asyncHandler(async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User tidak ditemukan",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        user: user.toJSON(),
+      },
+    });
+  } catch (error) {
+    console.error("Get current user error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Terjadi kesalahan server",
+      error: error.message,
+    });
+  }
+});
+
+// Logout User (optional, untuk clear token di client)
+export const logoutUser = asyncHandler(async (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Logout berhasil",
+  });
+});

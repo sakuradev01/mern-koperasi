@@ -40,7 +40,7 @@ const Input = React.forwardRef(function Input(
       {/* Input Wrapper */}
       <div
         className={`flex items-center border ${
-          error ? "border-red-500" : "border-gray-200"
+          error ? "border-red-500" : "border-gray-300"
         } rounded-lg bg-white focus-within:ring-2 focus-within:ring-blue-500 transition duration-200`}
       >
         {/* Icon (Left) */}
@@ -54,7 +54,9 @@ const Input = React.forwardRef(function Input(
           id={id}
           placeholder={placeholder}
           ref={ref}
-          className={`flex-1 outline-none bg-transparent text-black ${sizeClasses[size]}`}
+          className={`flex-1 outline-none bg-transparent text-black ${
+            sizeClasses[size]
+          } ${props.className || ""}`}
           {...props}
         />
 

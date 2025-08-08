@@ -1,11 +1,20 @@
-// auth.routes.js
 import express from "express";
+import {
+  loginUser,
+  registerUser,
+  getCurrentUser,
+  logoutUser,
+} from "../controllers/auth.controller.js";
 import { verifyToken } from "../middlewares/auth.middleware.js";
-import { loginUser } from "../controllers/auth.controller.js"; // Import the loginUser controller
 
 const router = express.Router();
 
-// Protected Route - Login Route
-router.post("/login", verifyToken, loginUser); // Calls the loginUser controller
+// Public Routes (tidak perlu authentication)
+router.post("/login", loginUser);
+router.post("/register", registerUser);
+
+// Protected Routes (perlu authentication)
+router.get("/me", verifyToken, getCurrentUser);
+router.post("/logout", verifyToken, logoutUser);
 
 export default router;

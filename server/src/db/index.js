@@ -3,7 +3,7 @@ import conf from "../conf/conf.js";
 
 const connectDB = async () => {
   try {
-    const connectionInstance = await mongoose.connect(conf.MONGODB_URI, {
+    const connectionInstance = await mongoose.connect(conf.mongodbUri, {
       //options
     });
     console.log(
