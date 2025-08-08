@@ -1,7 +1,7 @@
 /* eslint-disable react/prop-types */
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { api } from "../api/index.jsx";
+import api from "../api/index.jsx";
 
 const Dashboard = () => {
   const { user } = useSelector((state) => state.auth);
@@ -17,7 +17,7 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const response = await api.get("/admin/dashboard");
+        const response = await api.get("/api/admin/dashboard");
         if (response.data.success) {
           setStats(response.data.data);
         }
