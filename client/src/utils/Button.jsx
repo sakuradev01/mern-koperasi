@@ -1,5 +1,18 @@
-import PropTypes from "prop-types";
-
+/* eslint-disable react/prop-types */
+/**
+ * Button component with customizable styles and states
+ * @param {React.ReactNode} children - Button content
+ * @param {"button" | "submit" | "reset"} [type="button"] - Button type
+ * @param {"small" | "medium" | "large"} [size="medium"] - Button size
+ * @param {"rounded" | "pill" | "square"} [shape="rounded"] - Button shape
+ * @param {string} [bgColor="bg-blue-600"] - Background color classes
+ * @param {string} [textColor="text-white"] - Text color classes
+ * @param {string} [className=""] - Additional CSS classes
+ * @param {boolean} [isLoading=false] - Loading state
+ * @param {boolean} [block=false] - Full width button
+ * @param {boolean} [disabled=false] - Disabled state
+ * @param {...Object} props - Additional button attributes
+ */
 export default function Button({
   children,
   type = "button",
@@ -46,30 +59,3 @@ export default function Button({
     </button>
   );
 }
-
-// Prop validation
-Button.propTypes = {
-  children: PropTypes.node.isRequired,
-  type: PropTypes.oneOf(["button", "submit", "reset"]),
-  size: PropTypes.oneOf(["small", "medium", "large"]),
-  shape: PropTypes.oneOf(["rounded", "pill", "square"]),
-  bgColor: PropTypes.string,
-  textColor: PropTypes.string,
-  className: PropTypes.string,
-  isLoading: PropTypes.bool,
-  block: PropTypes.bool,
-  disabled: PropTypes.bool,
-};
-
-// Default props
-Button.defaultProps = {
-  type: "button",
-  size: "medium",
-  shape: "rounded",
-  bgColor: "bg-blue-600",
-  textColor: "text-white",
-  className: "",
-  isLoading: false,
-  block: false,
-  disabled: false,
-};
