@@ -1,3 +1,3 @@
-import { signUp, logIn } from "./authApi.jsx";
+import api from "./authApi.jsx";
 
-export { signUp, logIn };
+export { api };

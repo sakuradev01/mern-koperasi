@@ -1,7 +1,7 @@
+/* eslint-disable react/prop-types */
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { api } from "../api/authApi.js";
-import PropTypes from "prop-types";
+import { api } from "../api/index.jsx";
 
 const Dashboard = () => {
   const { user } = useSelector((state) => state.auth);
@@ -150,13 +150,6 @@ const StatCard = ({ title, value, icon, color }) => (
   </div>
 );
 
-StatCard.propTypes = {
-  title: PropTypes.string.isRequired,
-  value: PropTypes.number.isRequired,
-  icon: PropTypes.string.isRequired,
-  color: PropTypes.string.isRequired,
-};
-
 // Transaction Item Component
 const TransactionItem = ({ transaction }) => (
   <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
@@ -186,15 +179,5 @@ const TransactionItem = ({ transaction }) => (
     </div>
   </div>
 );
-
-TransactionItem.propTypes = {
-  transaction: PropTypes.shape({
-    id: PropTypes.number.isRequired,
-    member: PropTypes.string.isRequired,
-    amount: PropTypes.number.isRequired,
-    date: PropTypes.string.isRequired,
-    type: PropTypes.string.isRequired,
-  }).isRequired,
-};
 
 export default Dashboard;
