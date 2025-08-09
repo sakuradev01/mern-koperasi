@@ -93,6 +93,20 @@ const createSavings = asyncHandler(async (req, res) => {
     throw new ApiError(400, `Jumlah simpanan minimal ${product.depositAmount}`);
   }
 
+  // Check for duplicate installment period for same member and product
+  const existingSavings = await Savings.findOne({
+    memberId,
+    productId,
+    installmentPeriod,
+  });
+
+  if (existingSavings) {
+    throw new ApiError(
+      400,
+      `Kamu sudah pernah menambahkan data periode ${installmentPeriod} untuk produk ini`
+    );
+  }
+
   const savings = new Savings({
     installmentPeriod,
     memberId,
@@ -160,6 +174,27 @@ const updateSavings = asyncHandler(async (req, res) => {
       throw new ApiError(
         400,
         `Jumlah simpanan minimal ${product.depositAmount}`
+      );
+    }
+  }
+
+  // Check for duplicate installment period when updating
+  if (
+    updateData.installmentPeriod &&
+    updateData.memberId &&
+    updateData.productId
+  ) {
+    const existingSavings = await Savings.findOne({
+      memberId: updateData.memberId,
+      productId: updateData.productId,
+      installmentPeriod: updateData.installmentPeriod,
+      _id: { $ne: id }, // Exclude current savings
+    });
+
+    if (existingSavings) {
+      throw new ApiError(
+        400,
+        `Kamu sudah pernah menambahkan data periode ${updateData.installmentPeriod} untuk produk ini`
       );
     }
   }
@@ -288,6 +323,32 @@ const getSavingsSummary = asyncHandler(async (req, res) => {
   );
 });
 
+// Get last installment period for member and product
+const getLastInstallmentPeriod = asyncHandler(async (req, res) => {
+  const { memberId, productId } = req.params;
+
+  if (!memberId || !productId) {
+    throw new ApiError(400, "Member ID dan Product ID wajib diisi");
+  }
+
+  const lastSavings = await Savings.findOne({
+    memberId,
+    productId,
+  })
+    .sort({ installmentPeriod: -1 })
+    .select("installmentPeriod");
+
+  const lastPeriod = lastSavings ? lastSavings.installmentPeriod : 0;
+  const nextPeriod = lastPeriod + 1;
+
+  res.status(200).json(
+    new ApiResponse(200, {
+      lastPeriod,
+      nextPeriod,
+    })
+  );
+});
+
 export {
   getAllSavings,
   getSavingsById,
@@ -296,4 +357,5 @@ export {
   deleteSavings,
   getSavingsByMember,
   getSavingsSummary,
+  getLastInstallmentPeriod,
 };

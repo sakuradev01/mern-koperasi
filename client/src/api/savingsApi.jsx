@@ -93,6 +93,12 @@ export const savingsApi = {
     const response = await api.get(`/member/${memberId}`, { params });
     return response.data;
   },
+
+  // Get last installment period for member and product
+  getLastInstallmentPeriod: async (memberId, productId) => {
+    const response = await api.get(`/check-period/${memberId}/${productId}`);
+    return response.data;
+  },
 };
 
 export default savingsApi;

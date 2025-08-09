@@ -9,12 +9,14 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
   const [members, setMembers] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [lastPeriod, setLastPeriod] = useState(0);
 
   const {
     register,
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors },
   } = useForm({
     defaultValues: {
@@ -24,6 +26,8 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
   });
 
   const type = watch("type");
+  const memberId = watch("memberId");
+  const productId = watch("productId");
 
   useEffect(() => {
     if (isOpen) {
@@ -48,6 +52,12 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
     }
   }, [isOpen, savingsData, reset]);
 
+  useEffect(() => {
+    if (memberId && productId && type === "Setoran") {
+      checkLastInstallmentPeriod();
+    }
+  }, [memberId, productId, type]);
+
   const fetchMembers = async () => {
     try {
       const response = await memberApi.getAllMembers();
@@ -63,6 +73,24 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
       setProducts(response.data.products || []);
     } catch (error) {
       console.error("Error fetching products:", error);
+    }
+  };
+
+  const checkLastInstallmentPeriod = async () => {
+    try {
+      const response = await savingsApi.getLastInstallmentPeriod(
+        memberId,
+        productId
+      );
+      setLastPeriod(response.data.lastPeriod || 0);
+
+      // Auto-set next period
+      const nextPeriod = (response.data.lastPeriod || 0) + 1;
+      setValue("installmentPeriod", nextPeriod);
+    } catch (error) {
+      console.error("Error checking last period:", error);
+      setLastPeriod(0);
+      setValue("installmentPeriod", 1);
     }
   };
 
@@ -239,25 +267,33 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Periode Cicilan (bulan)
-            </label>
-            <input
-              type="number"
-              {...register("installmentPeriod", {
-                required: "Periode cicilan wajib diisi",
-                min: { value: 1, message: "Minimal 1 bulan" },
-              })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Masukkan periode cicilan"
-            />
-            {errors.installmentPeriod && (
-              <p className="text-red-500 text-sm mt-1">
-                {errors.installmentPeriod.message}
-              </p>
-            )}
-          </div>
+          {type === "Setoran" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Periode Cicilan (bulan)
+              </label>
+              <input
+                type="number"
+                {...register("installmentPeriod", {
+                  required: "Periode cicilan wajib diisi",
+                  min: { value: 1, message: "Minimal 1 bulan" },
+                })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Masukkan periode cicilan"
+              />
+              {lastPeriod > 0 && (
+                <p className="text-sm text-gray-600 mt-1">
+                  Periode terakhir: {lastPeriod}, otomatis diisi periode
+                  berikutnya
+                </p>
+              )}
+              {errors.installmentPeriod && (
+                <p className="text-red-500 text-sm mt-1">
+                  {errors.installmentPeriod.message}
+                </p>
+              )}
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
