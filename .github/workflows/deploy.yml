@@ -1,9 +1,13 @@
 name: Deploy MERN Koperasi to AWS EC2
 
 on:
+  # Ini akan menjalankan workflow setiap kali ada push ke branch 'main'
   push:
     branches:
       - main
+  
+  # Ini akan menambahkan tombol "Run workflow" di GitHub Actions
+  # Jadi kamu bisa jalankan deployment secara manual tanpa perlu push
   workflow_dispatch:
 
 jobs:
@@ -14,11 +18,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: '18'
-
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
         with:
@@ -26,7 +25,7 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Menghentikan layanan yang sedang berjalan
+            # Menghentikan layanan yang sedang berjalan jika ada
             pm2 stop mern-koperasi-backend || true
             pm2 delete mern-koperasi-backend || true
 
@@ -34,16 +33,15 @@ jobs:
             mkdir -p /home/${{ secrets.EC2_USER }}/app-staging
             sudo rm -rf /home/${{ secrets.EC2_USER }}/app-staging/*
             
-            # Menggunakan git untuk kloning repositori
-            # Klone hanya branch 'main' dan hapus folder .git untuk menghemat ruang
+            # Menggunakan git untuk kloning repositori ke folder staging
             git clone --branch main --single-branch https://github.com/${{ github.repository }}.git /home/${{ secrets.EC2_USER }}/app-staging
-            sudo rm -rf /home/${{ secrets.EC2_USER }}/app-staging/.git
-
-            # Menjalankan instalasi dependensi backend
+            
+            # Menjalankan instalasi dependensi backend dan frontend
+            # Masuk ke direktori server untuk instalasi dependensi
             cd /home/${{ secrets.EC2_USER }}/app-staging/server
             npm install --production
             
-            # Menjalankan instalasi dan build frontend
+            # Masuk ke direktori client untuk instalasi dan build frontend
             cd /home/${{ secrets.EC2_USER }}/app-staging/client
             npm install
             npm run build
@@ -51,19 +49,23 @@ jobs:
             # Hapus konten lama di Nginx
             sudo rm -rf /var/www/html/*
             
-            # Salin file frontend yang sudah dibuild
+            # Salin file frontend yang sudah dibuild ke direktori Nginx
             sudo cp -r /home/${{ secrets.EC2_USER }}/app-staging/client/dist/. /var/www/html/
             
-            # Mengganti URL server di konfigurasi frontend
+            # Mengganti URL server di konfigurasi frontend yang sudah di-deploy
+            # Ini akan mengganti URL lokal (localhost:5000) dengan IP publik server
             if [ -f "/var/www/html/assets/conf.js" ]; then
-              sudo sed -i "s|VITE_SERVER_URL=\"http://localhost:5173\"|VITE_SERVER_URL=\"http://${{ secrets.EC2_HOST }}:5000\"|g" /var/www/html/assets/conf.js
+              sudo sed -i "s|VITE_SERVER_URL=\"http://localhost:5000/\"|VITE_SERVER_URL=\"http://${{ secrets.EC2_HOST }}/\"|g" /var/www/html/assets/conf.js
             else
               echo "Warning: /var/www/html/assets/conf.js not found. Skipping sed command."
             fi
             
-            # Jalankan backend
+            # Jalankan backend dengan PM2
             cd /home/${{ secrets.EC2_USER }}/app-staging/server
             pm2 start index.js --name "mern-koperasi-backend"
             
-            # Simpan konfigurasi PM2
+            # Simpan konfigurasi PM2 agar aplikasi otomatis berjalan saat server reboot
             pm2 save --force
+            
+            # Membersihkan folder staging
+            sudo rm -rf /home/${{ secrets.EC2_USER }}/app-staging
