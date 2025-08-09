@@ -38,8 +38,16 @@ const getMemberByUuid = asyncHandler(async (req, res) => {
 
 // Create new member
 const createMember = asyncHandler(async (req, res) => {
-  const { name, gender, phone, city, completeAddress, username, password } =
-    req.body;
+  const {
+    uuid,
+    name,
+    gender,
+    phone,
+    city,
+    completeAddress,
+    username,
+    password,
+  } = req.body;
 
   // Check if username already exists
   const existingUser = await User.findOne({ username });
@@ -48,6 +56,17 @@ const createMember = asyncHandler(async (req, res) => {
       success: false,
       message: "Username sudah digunakan",
     });
+  }
+
+  // Check if UUID already exists if provided
+  if (uuid) {
+    const existingMember = await Member.findOne({ uuid });
+    if (existingMember) {
+      return res.status(400).json({
+        success: false,
+        message: "UUID sudah digunakan",
+      });
+    }
   }
 
   // Generate UUID for user
@@ -68,12 +87,14 @@ const createMember = asyncHandler(async (req, res) => {
 
   await user.save();
 
-  // Generate UUID for member
-  const generateMemberUUID = () => {
-    const timestamp = Date.now().toString();
-    const random = Math.random().toString(36).substring(2, 8);
-    return `MEMBER_${timestamp}_${random}`;
-  };
+  // Use provided UUID or generate new one
+  const memberUUID =
+    uuid ||
+    (() => {
+      const timestamp = Date.now().toString();
+      const random = Math.random().toString(36).substring(2, 8);
+      return `MEMBER_${timestamp}_${random}`;
+    })();
 
   // Create member
   const member = new Member({
@@ -83,7 +104,7 @@ const createMember = asyncHandler(async (req, res) => {
     city,
     completeAddress,
     user: user._id,
-    uuid: generateMemberUUID(),
+    uuid: memberUUID,
   });
 
   await member.save();
@@ -104,7 +125,14 @@ const createMember = asyncHandler(async (req, res) => {
 // Update member
 const updateMember = asyncHandler(async (req, res) => {
   const { uuid } = req.params;
-  const { name, gender, phone, city, completeAddress } = req.body;
+  const {
+    uuid: newUuid,
+    name,
+    gender,
+    phone,
+    city,
+    completeAddress,
+  } = req.body;
 
   const member = await Member.findOne({ uuid });
 
@@ -115,7 +143,19 @@ const updateMember = asyncHandler(async (req, res) => {
     });
   }
 
+  // Check if new UUID is already used by another member
+  if (newUuid && newUuid !== uuid) {
+    const existingMember = await Member.findOne({ uuid: newUuid });
+    if (existingMember) {
+      return res.status(400).json({
+        success: false,
+        message: "UUID sudah digunakan oleh member lain",
+      });
+    }
+  }
+
   // Update member data
+  member.uuid = newUuid || member.uuid;
   member.name = name || member.name;
   member.gender = gender || member.gender;
   member.phone = phone || member.phone;

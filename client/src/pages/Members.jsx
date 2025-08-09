@@ -8,6 +8,7 @@ const Members = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [formData, setFormData] = useState({
+    uuid: "",
     name: "",
     gender: "L",
     phone: "",
@@ -78,6 +79,7 @@ const Members = () => {
   const handleEdit = (member) => {
     setEditingMember(member);
     setFormData({
+      uuid: member.uuid,
       name: member.name,
       gender: member.gender,
       phone: member.phone || "",
@@ -222,6 +224,40 @@ const Members = () => {
                 {editingMember ? "Edit Anggota" : "Tambah Anggota"}
               </h3>
               <form onSubmit={handleSubmit}>
+                {!editingMember && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      UUID (Kosongkan untuk otomatis)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.uuid}
+                      onChange={(e) =>
+                        setFormData({ ...formData, uuid: e.target.value })
+                      }
+                      placeholder="Contoh: ANG-001"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
+
+                {editingMember && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      UUID
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.uuid}
+                      onChange={(e) =>
+                        setFormData({ ...formData, uuid: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                )}
+
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Nama
