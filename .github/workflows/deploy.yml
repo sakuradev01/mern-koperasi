@@ -48,9 +48,8 @@ jobs:
             sudo cp -r /home/${{ secrets.EC2_USER }}/app-staging/client/dist/. /var/www/html/
             
             # Mengganti URL server di konfigurasi frontend yang sudah di-deploy
-            # Ini akan mengganti URL lokal (localhost:5000) dengan IP publik server
+            # Perintah ini lebih cerdas untuk mengganti "http://localhost:5000/" yang ada di file conf.js
             if [ -f "/var/www/html/assets/conf.js" ]; then
-              sudo sed -i "s|VITE_SERVER_URL=undefined|VITE_SERVER_URL=\"http://${{ secrets.EC2_HOST }}/\"|g" /var/www/html/assets/conf.js
               sudo sed -i "s|VITE_SERVER_URL=\"http://localhost:5000/\"|VITE_SERVER_URL=\"http://${{ secrets.EC2_HOST }}/\"|g" /var/www/html/assets/conf.js
             else
               echo "Warning: /var/www/html/assets/conf.js not found. Skipping sed command."
