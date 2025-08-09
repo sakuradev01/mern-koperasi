@@ -11,6 +11,7 @@ const Savings = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
     installmentPeriod: 1,
     memberId: "",
@@ -101,19 +102,33 @@ const Savings = () => {
 
     try {
       const token = localStorage.getItem("token");
-      await axios.post(`${API_URL}/api/savings`, formDataToSend, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data",
-        },
-      });
 
-      toast.success("Data simpanan berhasil ditambahkan");
+      if (editingId) {
+        // Update existing savings
+        await axios.put(`${API_URL}/api/savings/${editingId}`, formDataToSend, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        });
+        toast.success("Data simpanan berhasil diperbarui");
+      } else {
+        // Create new savings
+        await axios.post(`${API_URL}/api/savings`, formDataToSend, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        });
+        toast.success("Data simpanan berhasil ditambahkan");
+      }
+
       setShowModal(false);
+      setEditingId(null);
       resetForm();
       fetchSavings();
     } catch (error) {
-      toast.error(error.response?.data?.message || "Gagal menambahkan data");
+      toast.error(error.response?.data?.message || "Gagal menyimpan data");
     }
   };
 
@@ -156,16 +171,50 @@ const Savings = () => {
     }
   };
 
+  // Handle edit
+  const handleEdit = (saving) => {
+    setEditingId(saving._id);
+    setFormData({
+      installmentPeriod: saving.installmentPeriod || 1,
+      memberId: saving.memberId?._id || saving.memberId || "",
+      productId: saving.productId?._id || saving.productId || "",
+      amount: saving.amount || 0,
+      savingsDate: format(new Date(saving.savingsDate), "yyyy-MM-dd"),
+      type: saving.type || "Setoran",
+      description: saving.description || "",
+      proofFile: null,
+    });
+    setShowModal(true);
+  };
+
   // Get member name
   const getMemberName = (memberId) => {
-    const member = members.find((m) => m._id === memberId);
-    return member ? member.name : "Unknown";
+    if (!memberId) return "Unknown";
+    const member = members.find(
+      (m) => m._id === memberId || m._id === memberId._id
+    );
+    if (member) return member.name;
+
+    // Handle populated member object
+    if (typeof memberId === "object" && memberId.name) {
+      return memberId.name;
+    }
+    return "Unknown";
   };
 
   // Get product name
   const getProductName = (productId) => {
-    const product = products.find((p) => p._id === productId);
-    return product ? product.title : "Unknown";
+    if (!productId) return "Unknown";
+    const product = products.find(
+      (p) => p._id === productId || p._id === productId._id
+    );
+    if (product) return product.title;
+
+    // Handle populated product object
+    if (typeof productId === "object" && productId.title) {
+      return productId.title;
+    }
+    return "Unknown";
   };
 
   // Get status badge
@@ -304,9 +353,15 @@ const Savings = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button
                       onClick={() => handleDelete(saving._id)}
-                      className="text-red-600 hover:text-red-900"
+                      className="text-red-600 hover:text-red-900 mr-2"
                     >
                       Hapus
+                    </button>
+                    <button
+                      onClick={() => handleEdit(saving)}
+                      className="text-blue-600 hover:text-blue-900"
+                    >
+                      Edit
                     </button>
                   </td>
                 </tr>
@@ -322,7 +377,7 @@ const Savings = () => {
           <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
             <div className="mt-3">
               <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">
-                Tambah Data Simpanan
+                {editingId ? "Edit Data Simpanan" : "Tambah Data Simpanan"}
               </h3>
 
               <form onSubmit={handleSubmit} className="space-y-4">
