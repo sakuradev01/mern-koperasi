@@ -27,19 +27,41 @@ const SavingsChart = ({ data }) => {
             {
               label: "Setoran",
               data: deposits,
-              backgroundColor: "rgba(34, 197, 94, 0.8)",
+              backgroundColor: (context) => {
+                const ctx = context.chart.ctx;
+                const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                gradient.addColorStop(0, "rgba(34, 197, 94, 0.8)");
+                gradient.addColorStop(1, "rgba(34, 197, 94, 0.2)");
+                return gradient;
+              },
               borderColor: "rgba(34, 197, 94, 1)",
-              borderWidth: 2,
-              borderRadius: 8,
+              borderWidth: 0,
+              borderRadius: {
+                topLeft: 8,
+                topRight: 8,
+                bottomLeft: 0,
+                bottomRight: 0,
+              },
               borderSkipped: false,
             },
             {
               label: "Penarikan",
               data: withdrawals,
-              backgroundColor: "rgba(239, 68, 68, 0.8)",
+              backgroundColor: (context) => {
+                const ctx = context.chart.ctx;
+                const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                gradient.addColorStop(0, "rgba(239, 68, 68, 0.8)");
+                gradient.addColorStop(1, "rgba(239, 68, 68, 0.2)");
+                return gradient;
+              },
               borderColor: "rgba(239, 68, 68, 1)",
-              borderWidth: 2,
-              borderRadius: 8,
+              borderWidth: 0,
+              borderRadius: {
+                topLeft: 8,
+                topRight: 8,
+                bottomLeft: 0,
+                bottomRight: 0,
+              },
               borderSkipped: false,
             },
           ],
@@ -54,18 +76,19 @@ const SavingsChart = ({ data }) => {
                 usePointStyle: true,
                 padding: 20,
                 font: {
-                  size: 12,
+                  size: 13,
                   family: "Inter",
+                  weight: "500",
                 },
               },
             },
             tooltip: {
-              backgroundColor: "rgba(0, 0, 0, 0.8)",
+              backgroundColor: "rgba(17, 24, 39, 0.9)",
               titleColor: "#fff",
               bodyColor: "#fff",
               borderColor: "rgba(255, 255, 255, 0.1)",
               borderWidth: 1,
-              cornerRadius: 8,
+              cornerRadius: 12,
               displayColors: true,
               callbacks: {
                 label: function (context) {
@@ -85,7 +108,7 @@ const SavingsChart = ({ data }) => {
               },
               ticks: {
                 font: {
-                  size: 11,
+                  size: 12,
                   family: "Inter",
                 },
               },
@@ -93,11 +116,12 @@ const SavingsChart = ({ data }) => {
             y: {
               beginAtZero: true,
               grid: {
-                color: "rgba(0, 0, 0, 0.05)",
+                color: "rgba(0, 0, 0, 0.03)",
+                drawBorder: false,
               },
               ticks: {
                 font: {
-                  size: 11,
+                  size: 12,
                   family: "Inter",
                 },
                 callback: function (value) {
@@ -107,8 +131,12 @@ const SavingsChart = ({ data }) => {
             },
           },
           animation: {
-            duration: 1000,
+            duration: 2000,
             easing: "easeInOutQuart",
+          },
+          interaction: {
+            intersect: false,
+            mode: "index",
           },
         },
       });
