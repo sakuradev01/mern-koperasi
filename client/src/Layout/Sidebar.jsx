@@ -66,7 +66,7 @@ const Sidebar = () => {
   };
 
   return (
-    <div className="w-64 bg-white shadow-lg">
+    <div className="w-64 bg-white shadow-lg flex flex-col h-screen">
       <div className="p-6">
         <div className="flex items-center mb-8">
           <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
@@ -78,10 +78,10 @@ const Sidebar = () => {
           </div>
         </div>
 
-        <nav className="space-y-1">{renderMenuItems(menuItems)}</nav>
+        <nav className="space-y-1 flex-1">{renderMenuItems(menuItems)}</nav>
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 p-6 border-t border-gray-200">
+      <div className="mt-auto p-6 border-t border-gray-200">
         <div className="flex items-center">
           <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center mr-3">
             <span className="text-gray-600 text-sm font-bold">

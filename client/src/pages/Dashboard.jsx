@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import api from "../api/index.jsx";
+import { SavingsChart } from "../components/charts/index.jsx";
 
 const Dashboard = () => {
   const { user } = useSelector((state) => state.auth);
@@ -10,6 +11,7 @@ const Dashboard = () => {
     totalDeposits: 0,
     totalProducts: 0,
     recentTransactions: [],
+    monthlyStats: [],
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -24,6 +26,7 @@ const Dashboard = () => {
             totalDeposits: response.data.data.totalSavings,
             totalProducts: response.data.data.totalProducts,
             recentTransactions: response.data.data.recentTransactions,
+            monthlyStats: response.data.data.monthlyStats || [],
           });
         }
       } catch (err) {
@@ -135,6 +138,11 @@ const Dashboard = () => {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Statistics Chart */}
+      <div className="mt-8">
+        <SavingsChart data={stats.monthlyStats} />
       </div>
     </div>
   );

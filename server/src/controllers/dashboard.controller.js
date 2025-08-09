@@ -33,6 +33,69 @@ const getDashboardStats = asyncHandler(async (req, res) => {
       .limit(10)
       .select("amount savingsDate type memberId description");
 
+    // Get monthly statistics for chart
+    const monthlyStats = await Savings.aggregate([
+      {
+        $match: {
+          status: "Approved",
+        },
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$savingsDate" },
+            month: { $month: "$savingsDate" },
+          },
+          deposits: {
+            $sum: {
+              $cond: [{ $eq: ["$type", "Setoran"] }, "$amount", 0],
+            },
+          },
+          withdrawals: {
+            $sum: {
+              $cond: [{ $eq: ["$type", "Penarikan"] }, "$amount", 0],
+            },
+          },
+        },
+      },
+      {
+        $sort: { "_id.year": 1, "_id.month": 1 },
+      },
+      {
+        $limit: 6,
+      },
+      {
+        $project: {
+          month: {
+            $let: {
+              vars: {
+                months: [
+                  "",
+                  "Jan",
+                  "Feb",
+                  "Mar",
+                  "Apr",
+                  "Mei",
+                  "Jun",
+                  "Jul",
+                  "Agu",
+                  "Sep",
+                  "Okt",
+                  "Nov",
+                  "Des",
+                ],
+              },
+              in: {
+                $arrayElemAt: ["$$months", "$_id.month"],
+              },
+            },
+          },
+          deposits: 1,
+          withdrawals: 1,
+        },
+      },
+    ]);
+
     // Format transactions for frontend
     const formattedTransactions = recentTransactions.map((transaction) => ({
       id: transaction._id,
@@ -53,6 +116,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
         totalSavings,
         totalProducts,
         recentTransactions: formattedTransactions,
+        monthlyStats,
       },
     });
   } catch (error) {
