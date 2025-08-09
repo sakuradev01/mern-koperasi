@@ -19,9 +19,7 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Install root dependencies
-        run: npm install
-
+      # LINGKUP CLIENT SAJA: Instalasi dan build
       - name: Install client dependencies
         run: npm install
         working-directory: ./client
@@ -37,8 +35,8 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "./"  # Salin semua file dari root repo
-          target: "/home/${{ secrets.EC2_USER }}/app-staging/" # ke folder staging di EC2
+          source: "./"
+          target: "/home/${{ secrets.EC2_USER }}/app-staging/"
 
       # Step 2: Menjalankan skrip deployment di EC2
       - name: Run deployment scripts on EC2
@@ -59,7 +57,6 @@ jobs:
             sudo cp -r /home/${{ secrets.EC2_USER }}/app-staging/client/dist/. /var/www/html/
             
             # Mengganti URL server di konfigurasi frontend
-            # Menggunakan skrip yang lebih aman untuk mencegah error jika file tidak ada
             if [ -f "/var/www/html/assets/conf.js" ]; then
               sudo sed -i "s|VITE_SERVER_URL=\"http://localhost:5173\"|VITE_SERVER_URL=\"http://${{ secrets.EC2_HOST }}:5000\"|g" /var/www/html/assets/conf.js
             else
@@ -67,7 +64,11 @@ jobs:
             fi
             
             # Menjalankan backend
+            # Masuk ke direktori server
             cd /home/${{ secrets.EC2_USER }}/app-staging/server
+            # Instal dependensi di server itu sendiri
+            npm install --production
+            # Jalankan aplikasi dengan PM2
             pm2 start index.js --name "mern-koperasi-backend"
             
             # Menyimpan konfigurasi PM2
