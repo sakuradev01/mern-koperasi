@@ -1,14 +1,19 @@
 name: Deploy MERN Koperasi to AWS EC2
 
 on:
+  # Ini akan menjalankan workflow setiap kali ada push ke branch 'main'
   push:
     branches:
       - main
+  
+  # Ini akan menambahkan tombol "Run workflow" di GitHub Actions
+  # Jadi kamu bisa jalankan deployment secara manual tanpa perlu push
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -16,20 +21,20 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v2
         with:
-          node-version: "18"
+          node-version: '18'
 
-      - name: Install dependencies (root)
+      - name: Install root dependencies
         run: npm install
 
-      - name: Install dependencies (client)
+      - name: Install client dependencies
         run: npm install
         working-directory: ./client
-
+        
       - name: Build React Frontend
         run: npm run build
         working-directory: ./client
 
-      - name: Install dependencies (server)
+      - name: Install server dependencies
         run: npm install
         working-directory: ./server
 
@@ -40,23 +45,27 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Hapus file lama di server
+            # Menghentikan proses aplikasi yang sedang berjalan
+            pm2 stop mern-koperasi-backend || true
+            pm2 stop mern-koperasi-frontend || true
+            
+            # Menghapus file lama di server EC2
             rm -rf /var/www/html/*
-
-            # Pindahkan file baru
-            cd /home/ubuntu
-            # Salin file frontend yang sudah dibuild
+            rm -rf /home/ubuntu/mern-koperasi-server-temp
+            
+            # Menyalin file frontend yang sudah dibuild dari GitHub Actions ke EC2
             scp -r ./client/dist/* /var/www/html/
-
+            
+            # Menyalin seluruh folder server
+            scp -r ./server /home/ubuntu/mern-koperasi-server-temp
+            
             # Ganti server_url di konfigurasi frontend
-            # Sesuaikan dengan IP publik kamu, atau domain jika sudah punya
-            sed -i 's|VITE_SERVER_URL="http://localhost:5173"|VITE_SERVER_URL="http://13.54.254.142"|g' /var/www/html/assets/conf.js
-
-            # Hentikan proses yang berjalan sebelumnya (jika ada)
-            pm2 stop all || true
-
+            # Ini penting agar frontend tahu alamat backendnya
+            sed -i 's|VITE_SERVER_URL="http://localhost:5173"|VITE_SERVER_URL="http://${{ secrets.EC2_HOST }}:5000"|g' /var/www/html/assets/conf.js
+            
             # Jalankan backend
-            cd /home/ubuntu/server
-            # Gunakan PM2 untuk menjaga aplikasi tetap berjalan
+            cd /home/ubuntu/mern-koperasi-server-temp
+            # Menggunakan PM2 untuk menjaga aplikasi backend tetap berjalan
             pm2 start index.js --name "mern-koperasi-backend"
+            
             pm2 save
