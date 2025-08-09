@@ -39,8 +39,8 @@ const Login = () => {
         // Update Redux store
         dispatch(login(response.data.user));
 
-        // Redirect to dashboard/home
-        navigate("/");
+        // Redirect to dashboard
+        navigate("/dashboard");
       } else {
         setError(response.message || "Login gagal");
       }
