@@ -74,6 +74,7 @@ const createSavings = asyncHandler(async (req, res) => {
     savingsDate,
     type,
     description,
+    status,
   } = value;
 
   // Validate member exists
