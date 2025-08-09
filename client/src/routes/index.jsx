@@ -4,6 +4,7 @@ import {
   createRoutesFromElements,
 } from "react-router-dom";
 import MainLayout from "../Layout/MainLayout";
+import AuthLayout from "../Layout/AuthLayout";
 import Home from "../pages/Home.jsx";
 import Login from "../pages/Login.jsx";
 import Dashboard from "../pages/Dashboard.jsx";
@@ -14,9 +15,14 @@ import Savings from "../pages/Savings.jsx";
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route>
+      {/* Auth Layout - untuk halaman login tanpa sidebar/header */}
+      <Route path="/" element={<AuthLayout />}>
+        <Route path="login" element={<Login />} />
+      </Route>
+
+      {/* Main Layout - untuk halaman dengan sidebar/header */}
       <Route path="/" element={<MainLayout />}>
         <Route index element={<Home />} />
-        <Route path="login" element={<Login />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="master/anggota" element={<Members />} />
         <Route path="master/produk" element={<Products />} />
