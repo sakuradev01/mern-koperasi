@@ -113,23 +113,61 @@ const createSavings = asyncHandler(async (req, res) => {
 
 // Update savings
 const updateSavings = asyncHandler(async (req, res) => {
-  const { error, value } = updateSavingsSchema.validate(req.body);
-  if (error) {
-    throw new ApiError(400, error.details[0].message);
+  const { id } = req.params;
+
+  // Ambil semua field dari form data
+  const updateData = {};
+
+  // Ambil semua field yang dikirim
+  const fields = [
+    "installmentPeriod",
+    "memberId",
+    "productId",
+    "amount",
+    "savingsDate",
+    "type",
+    "description",
+    "status",
+  ];
+
+  fields.forEach((field) => {
+    if (req.body[field] !== undefined) {
+      updateData[field] = req.body[field];
+    }
+  });
+
+  // Handle file upload jika ada
+  if (req.file) {
+    updateData.proofFile = req.file.path;
   }
 
-  const { id } = req.params;
-  const { status, description } = value;
+  // Validasi member dan product jika diupdate
+  if (updateData.memberId) {
+    const member = await Member.findById(updateData.memberId);
+    if (!member) {
+      throw new ApiError(404, "Anggota tidak ditemukan");
+    }
+  }
 
-  const savings = await Savings.findByIdAndUpdate(
-    id,
-    {
-      status,
-      description,
-      ...(req.file && { proofFile: req.file.path }),
-    },
-    { new: true, runValidators: true }
-  )
+  if (updateData.productId) {
+    const product = await Product.findById(updateData.productId);
+    if (!product) {
+      throw new ApiError(404, "Produk tidak ditemukan");
+    }
+
+    // Validasi amount terhadap product
+    if (updateData.amount && updateData.amount < product.depositAmount) {
+      throw new ApiError(
+        400,
+        `Jumlah simpanan minimal ${product.depositAmount}`
+      );
+    }
+  }
+
+  const savings = await Savings.findByIdAndUpdate(id, updateData, {
+    new: true,
+    runValidators: true,
+  })
     .populate("memberId", "name email phone")
     .populate("productId");
 

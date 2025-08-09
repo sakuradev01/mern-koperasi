@@ -94,8 +94,10 @@ const Savings = () => {
     e.preventDefault();
 
     const formDataToSend = new FormData();
+
+    // Kirim semua field untuk create dan update
     Object.keys(formData).forEach((key) => {
-      if (formData[key] !== null) {
+      if (formData[key] !== null && formData[key] !== undefined) {
         formDataToSend.append(key, formData[key]);
       }
     });
@@ -409,7 +411,10 @@ const Savings = () => {
                   <select
                     value={formData.productId}
                     onChange={(e) =>
-                      setFormData({ ...formData, productId: e.target.value })
+                      setFormData({
+                        ...formData,
+                        productId: e.target.value,
+                      })
                     }
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                     required

@@ -39,6 +39,32 @@ const createSavingsSchema = Joi.object({
 });
 
 const updateSavingsSchema = Joi.object({
+  installmentPeriod: Joi.number().integer().min(1).optional().messages({
+    "number.base": "Periode cicilan harus berupa angka",
+    "number.integer": "Periode cicilan harus berupa bilangan bulat",
+    "number.min": "Periode minimal 1 bulan",
+  }),
+  memberId: Joi.string().hex().length(24).optional().messages({
+    "string.base": "ID anggota harus berupa string",
+    "string.hex": "ID anggota harus berupa hex string",
+    "string.length": "ID anggota harus 24 karakter",
+  }),
+  productId: Joi.string().hex().length(24).optional().messages({
+    "string.base": "ID produk harus berupa string",
+    "string.hex": "ID produk harus berupa hex string",
+    "string.length": "ID produk harus 24 karakter",
+  }),
+  amount: Joi.number().positive().optional().messages({
+    "number.base": "Jumlah simpanan harus berupa angka",
+    "number.positive": "Jumlah simpanan harus positif",
+  }),
+  savingsDate: Joi.date().optional().messages({
+    "date.base": "Tanggal simpanan harus berupa tanggal yang valid",
+  }),
+  type: Joi.string().valid("Setoran", "Penarikan").optional().messages({
+    "string.base": "Tipe harus berupa string",
+    "any.only": "Tipe harus salah satu dari: Setoran, Penarikan",
+  }),
   status: Joi.string()
     .valid("Pending", "Approved", "Rejected")
     .optional()
