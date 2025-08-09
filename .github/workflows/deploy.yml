@@ -1,0 +1,62 @@
+name: Deploy MERN Koperasi to AWS EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: "18"
+
+      - name: Install dependencies (root)
+        run: npm install
+
+      - name: Install dependencies (client)
+        run: npm install
+        working-directory: ./client
+
+      - name: Build React Frontend
+        run: npm run build
+        working-directory: ./client
+
+      - name: Install dependencies (server)
+        run: npm install
+        working-directory: ./server
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # Hapus file lama di server
+            rm -rf /var/www/html/*
+
+            # Pindahkan file baru
+            cd /home/ubuntu
+            # Salin file frontend yang sudah dibuild
+            scp -r ./client/dist/* /var/www/html/
+
+            # Ganti server_url di konfigurasi frontend
+            # Sesuaikan dengan IP publik kamu, atau domain jika sudah punya
+            sed -i 's|VITE_SERVER_URL="http://localhost:5173"|VITE_SERVER_URL="http://13.54.254.142"|g' /var/www/html/assets/conf.js
+
+            # Hentikan proses yang berjalan sebelumnya (jika ada)
+            pm2 stop all || true
+
+            # Jalankan backend
+            cd /home/ubuntu/server
+            # Gunakan PM2 untuk menjaga aplikasi tetap berjalan
+            pm2 start index.js --name "mern-koperasi-backend"
+            pm2 save
