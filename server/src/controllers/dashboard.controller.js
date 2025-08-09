@@ -6,8 +6,14 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     // Get total members count
     const totalMembers = await User.countDocuments();
 
-    // Get total savings amount
+    // Get total savings amount (only approved deposits)
     const totalSavingsResult = await Savings.aggregate([
+      {
+        $match: {
+          type: "Setoran",
+          status: "Approved",
+        },
+      },
       {
         $group: {
           _id: null,

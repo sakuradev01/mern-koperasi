@@ -19,7 +19,12 @@ const Dashboard = () => {
       try {
         const response = await api.get("/api/admin/dashboard");
         if (response.data.success) {
-          setStats(response.data.data);
+          setStats({
+            totalMembers: response.data.data.totalMembers,
+            totalDeposits: response.data.data.totalSavings,
+            totalProducts: response.data.data.totalProducts,
+            recentTransactions: response.data.data.recentTransactions,
+          });
         }
       } catch (err) {
         setError("Gagal memuat data dashboard");
