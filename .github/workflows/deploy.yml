@@ -1,13 +1,9 @@
 name: Deploy MERN Koperasi to AWS EC2
 
 on:
-  # Ini akan menjalankan workflow setiap kali ada push ke branch 'main'
   push:
     branches:
       - main
-  
-  # Ini akan menambahkan tombol "Run workflow" di GitHub Actions
-  # Jadi kamu bisa jalankan deployment secara manual tanpa perlu push
   workflow_dispatch:
 
 jobs:
@@ -33,39 +29,43 @@ jobs:
       - name: Build React Frontend
         run: npm run build
         working-directory: ./client
+      
+      - name: Deploy to EC2 with rsync
+        uses: burnett01/rsync-deployments@6.0.0
+        with:
+          hostname: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "./" # Kirim semua file dari root repo
+          target: "/home/ubuntu/app-staging" # Salin ke folder sementara di EC2
 
-      - name: Install server dependencies
-        run: npm install
-        working-directory: ./server
-
-      - name: Deploy to EC2
+      - name: Run deployment scripts on EC2
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Menghentikan proses aplikasi yang sedang berjalan
+            # Menghentikan layanan yang sedang berjalan
             pm2 stop mern-koperasi-backend || true
-            pm2 stop mern-koperasi-frontend || true
+            pm2 delete mern-koperasi-backend || true
             
-            # Menghapus file lama di server EC2
-            rm -rf /var/www/html/*
-            rm -rf /home/ubuntu/mern-koperasi-server-temp
+            # Hapus konten lama di Nginx
+            sudo rm -rf /var/www/html/*
             
-            # Menyalin file frontend yang sudah dibuild dari GitHub Actions ke EC2
-            scp -r ./client/dist/* /var/www/html/
-            
-            # Menyalin seluruh folder server
-            scp -r ./server /home/ubuntu/mern-koperasi-server-temp
+            # Salin file baru dari staging ke tempat yang benar
+            sudo cp -r /home/ubuntu/app-staging/client/dist/* /var/www/html/
             
             # Ganti server_url di konfigurasi frontend
-            # Ini penting agar frontend tahu alamat backendnya
-            sed -i 's|VITE_SERVER_URL="http://localhost:5173"|VITE_SERVER_URL="http://${{ secrets.EC2_HOST }}:5000"|g' /var/www/html/assets/conf.js
+            sed -i "s|http://localhost:5173|http://${{ secrets.EC2_HOST }}:5000|g" /var/www/html/assets/conf.js
             
             # Jalankan backend
-            cd /home/ubuntu/mern-koperasi-server-temp
-            # Menggunakan PM2 untuk menjaga aplikasi backend tetap berjalan
+            cd /home/ubuntu/app-staging/server
+            npm install --production
             pm2 start index.js --name "mern-koperasi-backend"
             
+            # Simpan konfigurasi PM2
             pm2 save
+            
+            # Hapus folder staging
+            rm -rf /home/ubuntu/app-staging
