@@ -19,27 +19,7 @@ jobs:
         with:
           node-version: '18'
 
-      # LINGKUP CLIENT SAJA: Instalasi dan build
-      - name: Install client dependencies
-        run: npm install
-        working-directory: ./client
-        
-      - name: Build React Frontend
-        run: npm run build
-        working-directory: ./client
-      
-      # Step 1: Menyalin file ke EC2
-      - name: Copy files to EC2
-        uses: appleboy/scp-action@master
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "./"
-          target: "/home/${{ secrets.EC2_USER }}/app-staging/"
-
-      # Step 2: Menjalankan skrip deployment di EC2
-      - name: Run deployment scripts on EC2
+      - name: Deploy to EC2
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -49,11 +29,29 @@ jobs:
             # Menghentikan layanan yang sedang berjalan
             pm2 stop mern-koperasi-backend || true
             pm2 delete mern-koperasi-backend || true
+
+            # Membuat direktori staging jika belum ada dan membersihkannya
+            mkdir -p /home/${{ secrets.EC2_USER }}/app-staging
+            sudo rm -rf /home/${{ secrets.EC2_USER }}/app-staging/*
+            
+            # Menggunakan git untuk kloning repositori
+            # Klone hanya branch 'main' dan hapus folder .git untuk menghemat ruang
+            git clone --branch main --single-branch https://github.com/${{ github.repository }}.git /home/${{ secrets.EC2_USER }}/app-staging
+            sudo rm -rf /home/${{ secrets.EC2_USER }}/app-staging/.git
+
+            # Menjalankan instalasi dependensi backend
+            cd /home/${{ secrets.EC2_USER }}/app-staging/server
+            npm install --production
+            
+            # Menjalankan instalasi dan build frontend
+            cd /home/${{ secrets.EC2_USER }}/app-staging/client
+            npm install
+            npm run build
             
             # Hapus konten lama di Nginx
             sudo rm -rf /var/www/html/*
             
-            # Salin file baru dari staging ke tempat yang benar
+            # Salin file frontend yang sudah dibuild
             sudo cp -r /home/${{ secrets.EC2_USER }}/app-staging/client/dist/. /var/www/html/
             
             # Mengganti URL server di konfigurasi frontend
@@ -63,16 +61,9 @@ jobs:
               echo "Warning: /var/www/html/assets/conf.js not found. Skipping sed command."
             fi
             
-            # Menjalankan backend
-            # Masuk ke direktori server
+            # Jalankan backend
             cd /home/${{ secrets.EC2_USER }}/app-staging/server
-            # Instal dependensi di server itu sendiri
-            npm install --production
-            # Jalankan aplikasi dengan PM2
             pm2 start index.js --name "mern-koperasi-backend"
             
-            # Menyimpan konfigurasi PM2
+            # Simpan konfigurasi PM2
             pm2 save --force
-            
-            # Membersihkan folder staging
-            sudo rm -rf /home/${{ secrets.EC2_USER }}/app-staging
