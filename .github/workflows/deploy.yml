@@ -1,9 +1,13 @@
 name: Deploy MERN Koperasi to AWS EC2
 
 on:
+  # Ini akan menjalankan workflow setiap kali ada push ke branch 'main'
   push:
     branches:
       - main
+  
+  # Ini akan menambahkan tombol "Run workflow" di GitHub Actions
+  # Jadi kamu bisa jalankan deployment secara manual tanpa perlu push
   workflow_dispatch:
 
 jobs:
@@ -48,8 +52,9 @@ jobs:
             sudo cp -r /home/${{ secrets.EC2_USER }}/app-staging/client/dist/. /var/www/html/
             
             # Mengganti URL server di konfigurasi frontend yang sudah di-deploy
+            # Ini akan mengganti URL lokal (localhost:5173) dengan IP publik server
             if [ -f "/var/www/html/assets/conf.js" ]; then
-              sudo sed -i "s|VITE_SERVER_URL=\"http://localhost:5000/\"|VITE_SERVER_URL=\"http://${{ secrets.EC2_HOST }}/\"|g" /var/www/html/assets/conf.js
+              sudo sed -i "s|VITE_SERVER_URL=\"http://localhost:5173/\"|VITE_SERVER_URL=\"http://${{ secrets.EC2_HOST }}/\"|g" /var/www/html/assets/conf.js
             else
               echo "Warning: /var/www/html/assets/conf.js not found. Skipping sed command."
             fi
