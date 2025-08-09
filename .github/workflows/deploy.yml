@@ -29,16 +29,22 @@ jobs:
       - name: Build React Frontend
         run: npm run build
         working-directory: ./client
-      
-      - name: Deploy to EC2 with rsync
-        uses: burnett01/rsync-deployments@6.0.0
-        with:
-          remote_host: ${{ secrets.EC2_HOST }}
-          remote_user: ${{ secrets.EC2_USER }}
-          remote_key: ${{ secrets.SSH_PRIVATE_KEY }}
-          path: "./" 
-          remote_path: "/home/${{ secrets.EC2_USER }}/app-staging/"
 
+      - name: Install server dependencies
+        run: npm install
+        working-directory: ./server
+      
+      # Step 1: Menyalin file ke EC2
+      - name: Copy files to EC2
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "./"  # Salin semua file dari root repo
+          target: "/home/${{ secrets.EC2_USER }}/app-staging/" # ke folder staging di EC2
+
+      # Step 2: Menjalankan skrip deployment di EC2
       - name: Run deployment scripts on EC2
         uses: appleboy/ssh-action@master
         with:
@@ -50,10 +56,10 @@ jobs:
             pm2 stop mern-koperasi-backend || true
             pm2 delete mern-koperasi-backend || true
             
-            # Menghapus file lama di Nginx
+            # Hapus konten lama di Nginx
             sudo rm -rf /var/www/html/*
             
-            # Menyalin file baru dari staging ke tempat yang benar
+            # Salin file baru dari staging ke tempat yang benar
             sudo cp -r /home/${{ secrets.EC2_USER }}/app-staging/client/dist/. /var/www/html/
             
             # Mengganti URL server di konfigurasi frontend
@@ -61,7 +67,6 @@ jobs:
             
             # Menjalankan backend
             cd /home/${{ secrets.EC2_USER }}/app-staging/server
-            npm install --production
             pm2 start index.js --name "mern-koperasi-backend"
             
             # Menyimpan konfigurasi PM2
