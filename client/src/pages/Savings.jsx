@@ -256,7 +256,7 @@ const Savings = () => {
           <p className="text-2xl font-bold text-green-600">
             {formatCurrency(
               savings
-                .filter((s) => s.type === "Setoran")
+                .filter((s) => s.type === "Setoran" && s.status === "Approved")
                 .reduce((sum, s) => sum + s.amount, 0)
             )}
           </p>
@@ -266,7 +266,9 @@ const Savings = () => {
           <p className="text-2xl font-bold text-red-600">
             {formatCurrency(
               savings
-                .filter((s) => s.type === "Penarikan")
+                .filter(
+                  (s) => s.type === "Penarikan" && s.status === "Approved"
+                )
                 .reduce((sum, s) => sum + s.amount, 0)
             )}
           </p>
@@ -276,10 +278,12 @@ const Savings = () => {
           <p className="text-2xl font-bold text-blue-600">
             {formatCurrency(
               savings
-                .filter((s) => s.type === "Setoran")
+                .filter((s) => s.type === "Setoran" && s.status === "Approved")
                 .reduce((sum, s) => sum + s.amount, 0) -
                 savings
-                  .filter((s) => s.type === "Penarikan")
+                  .filter(
+                    (s) => s.type === "Penarikan" && s.status === "Approved"
+                  )
                   .reduce((sum, s) => sum + s.amount, 0)
             )}
           </p>
@@ -517,6 +521,23 @@ const Savings = () => {
                     rows="3"
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Status
+                  </label>
+                  <select
+                    value={formData.status || "Pending"}
+                    onChange={(e) =>
+                      setFormData({ ...formData, status: e.target.value })
+                    }
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  >
+                    <option value="Pending">Pending</option>
+                    <option value="Approved">Approved</option>
+                    <option value="Rejected">Rejected</option>
+                  </select>
                 </div>
 
                 <div>
