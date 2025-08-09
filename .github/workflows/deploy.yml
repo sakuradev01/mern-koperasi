@@ -1,13 +1,9 @@
 name: Deploy MERN Koperasi to AWS EC2
 
 on:
-  # Ini akan menjalankan workflow setiap kali ada push ke branch 'main'
   push:
     branches:
       - main
-  
-  # Ini akan menambahkan tombol "Run workflow" di GitHub Actions
-  # Jadi kamu bisa jalankan deployment secara manual tanpa perlu push
   workflow_dispatch:
 
 jobs:
@@ -29,19 +25,18 @@ jobs:
             pm2 stop mern-koperasi-backend || true
             pm2 delete mern-koperasi-backend || true
 
-            # Membuat direktori staging jika belum ada dan membersihkannya
+            # Hapus folder staging jika sudah ada dan buat yang baru
+            sudo rm -rf /home/${{ secrets.EC2_USER }}/app-staging
             mkdir -p /home/${{ secrets.EC2_USER }}/app-staging
-            sudo rm -rf /home/${{ secrets.EC2_USER }}/app-staging/*
             
             # Menggunakan git untuk kloning repositori ke folder staging
             git clone --branch main --single-branch https://github.com/${{ github.repository }}.git /home/${{ secrets.EC2_USER }}/app-staging
             
-            # Menjalankan instalasi dependensi backend dan frontend
-            # Masuk ke direktori server untuk instalasi dependensi
+            # Menjalankan instalasi dependensi backend
             cd /home/${{ secrets.EC2_USER }}/app-staging/server
             npm install --production
             
-            # Masuk ke direktori client untuk instalasi dan build frontend
+            # Menjalankan instalasi dan build frontend
             cd /home/${{ secrets.EC2_USER }}/app-staging/client
             npm install
             npm run build
@@ -53,7 +48,6 @@ jobs:
             sudo cp -r /home/${{ secrets.EC2_USER }}/app-staging/client/dist/. /var/www/html/
             
             # Mengganti URL server di konfigurasi frontend yang sudah di-deploy
-            # Ini akan mengganti URL lokal (localhost:5000) dengan IP publik server
             if [ -f "/var/www/html/assets/conf.js" ]; then
               sudo sed -i "s|VITE_SERVER_URL=\"http://localhost:5000/\"|VITE_SERVER_URL=\"http://${{ secrets.EC2_HOST }}/\"|g" /var/www/html/assets/conf.js
             else
@@ -66,6 +60,3 @@ jobs:
             
             # Simpan konfigurasi PM2 agar aplikasi otomatis berjalan saat server reboot
             pm2 save --force
-            
-            # Membersihkan folder staging
-            sudo rm -rf /home/${{ secrets.EC2_USER }}/app-staging
