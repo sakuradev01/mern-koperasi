@@ -1,123 +1,176 @@
 import { useState, useEffect } from "react";
-import { useSelector } from "react-redux";
-import { savingsApi } from "../api/savingsApi";
-import Button from "../utils/Button";
-import Input from "../utils/Input";
+import axios from "axios";
+import { format } from "date-fns";
+import { id } from "date-fns/locale";
+import { toast } from "react-toastify";
+import { API_URL } from "../api/config";
 
 const Savings = () => {
   const [savings, setSavings] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({
     installmentPeriod: 1,
+    memberId: "",
+    productId: "",
     amount: "",
-    savingsDate: new Date().toISOString().split("T")[0],
+    savingsDate: format(new Date(), "yyyy-MM-dd"),
     type: "Setoran",
     description: "",
     proofFile: null,
   });
-  const [filePreview, setFilePreview] = useState(null);
 
-  const { user } = useSelector((state) => state.auth);
-
-  useEffect(() => {
-    fetchSavings();
-  }, []);
-
+  // Fetch data
   const fetchSavings = async () => {
     try {
-      setLoading(true);
-      const response = await savingsApi.getSavingsByMember(user._id);
-      setSavings(response.data);
-    } catch (error) {
-      console.error("Error fetching savings:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setFormData((prev) => ({
-        ...prev,
-        proofFile: file,
-      }));
-
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFilePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const data = {
-        ...formData,
-        memberId: user._id,
-      };
-
-      await savingsApi.createSavings(data);
-      setShowModal(false);
-      setFormData({
-        installmentPeriod: 1,
-        amount: "",
-        savingsDate: new Date().toISOString().split("T")[0],
-        type: "Setoran",
-        description: "",
-        proofFile: null,
+      const token = localStorage.getItem("token");
+      const response = await axios.get(`${API_URL}/api/savings`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-      setFilePreview(null);
-      fetchSavings();
-    } catch (error) {
-      console.error("Error creating savings:", error);
-      alert("Gagal membuat simpanan");
+      const data = response.data?.data || response.data || [];
+      setSavings(Array.isArray(data) ? data : []);
+    } catch {
+      toast.error("Gagal memuat data simpanan");
+      setSavings([]);
     }
   };
 
+  const fetchMembers = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get(`${API_URL}/api/members`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = response.data?.data || response.data || [];
+      setMembers(Array.isArray(data) ? data : []);
+    } catch {
+      toast.error("Gagal memuat data anggota");
+      setMembers([]);
+    }
+  };
+
+  const fetchProducts = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get(`${API_URL}/api/products`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = response.data?.data || response.data || [];
+      setProducts(Array.isArray(data) ? data : []);
+    } catch {
+      toast.error("Gagal memuat data produk");
+      setProducts([]);
+    }
+  };
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      await Promise.all([fetchSavings(), fetchMembers(), fetchProducts()]);
+      setLoading(false);
+    };
+    loadData();
+  }, []);
+
+  // Format currency
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
       currency: "IDR",
+      minimumFractionDigits: 0,
     }).format(amount);
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("id-ID", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    });
-  };
+  // Handle form submission
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "Approved":
-        return "text-green-600 bg-green-100";
-      case "Rejected":
-        return "text-red-600 bg-red-100";
-      case "Pending":
-        return "text-yellow-600 bg-yellow-100";
-      default:
-        return "text-gray-600 bg-gray-100";
+    const formDataToSend = new FormData();
+    Object.keys(formData).forEach((key) => {
+      if (formData[key] !== null) {
+        formDataToSend.append(key, formData[key]);
+      }
+    });
+
+    try {
+      const token = localStorage.getItem("token");
+      await axios.post(`${API_URL}/api/savings`, formDataToSend, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      toast.success("Data simpanan berhasil ditambahkan");
+      setShowModal(false);
+      resetForm();
+      fetchSavings();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Gagal menambahkan data");
     }
   };
 
-  const getTypeColor = (type) => {
-    return type === "Setoran"
-      ? "text-blue-600 bg-blue-100"
-      : "text-red-600 bg-red-100";
+  const resetForm = () => {
+    setFormData({
+      installmentPeriod: 1,
+      memberId: "",
+      productId: "",
+      amount: "",
+      savingsDate: format(new Date(), "yyyy-MM-dd"),
+      type: "Setoran",
+      description: "",
+      proofFile: null,
+    });
+  };
+
+  // Handle file upload
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file && file.size > 5 * 1024 * 1024) {
+      toast.error("File tidak boleh lebih dari 5MB");
+      return;
+    }
+    setFormData({ ...formData, proofFile: file });
+  };
+
+  // Handle delete
+  const handleDelete = async (id) => {
+    if (window.confirm("Apakah Anda yakin ingin menghapus data ini?")) {
+      try {
+        const token = localStorage.getItem("token");
+        await axios.delete(`${API_URL}/api/savings/${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        toast.success("Data berhasil dihapus");
+        fetchSavings();
+      } catch {
+        toast.error("Gagal menghapus data");
+      }
+    }
+  };
+
+  // Get member name
+  const getMemberName = (memberId) => {
+    const member = members.find((m) => m._id === memberId);
+    return member ? member.name : "Unknown";
+  };
+
+  // Get product name
+  const getProductName = (productId) => {
+    const product = products.find((p) => p._id === productId);
+    return product ? product.title : "Unknown";
+  };
+
+  // Get status badge
+  const getStatusBadge = (status) => {
+    const badges = {
+      Pending: "bg-yellow-100 text-yellow-800",
+      Approved: "bg-green-100 text-green-800",
+      Rejected: "bg-red-100 text-red-800",
+    };
+    return badges[status] || "bg-gray-100 text-gray-800";
   };
 
   if (loading) {
@@ -131,23 +184,23 @@ const Savings = () => {
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Simpanan Saya</h1>
-        <Button
+        <h1 className="text-2xl font-bold text-gray-800">Data Simpanan</h1>
+        <button
           onClick={() => setShowModal(true)}
-          className="bg-blue-600 hover:bg-blue-700"
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
         >
           Tambah Simpanan
-        </Button>
+        </button>
       </div>
 
-      {/* Summary Card */}
+      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg shadow">
           <h3 className="text-sm font-medium text-gray-500">Total Setoran</h3>
           <p className="text-2xl font-bold text-green-600">
             {formatCurrency(
               savings
-                .filter((s) => s.type === "Setoran" && s.status === "Approved")
+                .filter((s) => s.type === "Setoran")
                 .reduce((sum, s) => sum + s.amount, 0)
             )}
           </p>
@@ -157,9 +210,7 @@ const Savings = () => {
           <p className="text-2xl font-bold text-red-600">
             {formatCurrency(
               savings
-                .filter(
-                  (s) => s.type === "Penarikan" && s.status === "Approved"
-                )
+                .filter((s) => s.type === "Penarikan")
                 .reduce((sum, s) => sum + s.amount, 0)
             )}
           </p>
@@ -169,16 +220,17 @@ const Savings = () => {
           <p className="text-2xl font-bold text-blue-600">
             {formatCurrency(
               savings
-                .filter((s) => s.status === "Approved")
-                .reduce((sum, s) => {
-                  return s.type === "Setoran" ? sum + s.amount : sum - s.amount;
-                }, 0)
+                .filter((s) => s.type === "Setoran")
+                .reduce((sum, s) => sum + s.amount, 0) -
+                savings
+                  .filter((s) => s.type === "Penarikan")
+                  .reduce((sum, s) => sum + s.amount, 0)
             )}
           </p>
         </div>
       </div>
 
-      {/* Savings List */}
+      {/* Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -188,16 +240,22 @@ const Savings = () => {
                   Tanggal
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Jenis
+                  Anggota
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Produk
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Jumlah
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Tipe
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Deskripsi
+                  Aksi
                 </th>
               </tr>
             </thead>
@@ -205,31 +263,46 @@ const Savings = () => {
               {savings.map((saving) => (
                 <tr key={saving._id}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatDate(saving.savingsDate)}
+                    {format(new Date(saving.savingsDate), "dd MMM yyyy", {
+                      locale: id,
+                    })}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getTypeColor(
-                        saving.type
-                      )}`}
-                    >
-                      {saving.type}
-                    </span>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {getMemberName(saving.memberId)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {getProductName(saving.productId)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {formatCurrency(saving.amount)}
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <span
+                      className={`px-2 py-1 text-xs rounded-full ${
+                        saving.type === "Setoran"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {saving.type}
+                    </span>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
-                      className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(
+                      className={`px-2 py-1 text-xs rounded-full ${getStatusBadge(
                         saving.status
                       )}`}
                     >
                       {saving.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {saving.description || "-"}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <button
+                      onClick={() => handleDelete(saving._id)}
+                      className="text-red-600 hover:text-red-900"
+                    >
+                      Hapus
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -241,114 +314,181 @@ const Savings = () => {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              Tambah Simpanan
-            </h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Jenis Transaksi
-                </label>
-                <select
-                  name="type"
-                  value={formData.type}
-                  onChange={handleInputChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                >
-                  <option value="Setoran">Setoran</option>
-                  <option value="Penarikan">Penarikan</option>
-                </select>
-              </div>
+          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">
+                Tambah Data Simpanan
+              </h3>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Jumlah
-                </label>
-                <Input
-                  type="number"
-                  name="amount"
-                  value={formData.amount}
-                  onChange={handleInputChange}
-                  required
-                  min="0"
-                  placeholder="Masukkan jumlah"
-                />
-              </div>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Anggota
+                  </label>
+                  <select
+                    value={formData.memberId}
+                    onChange={(e) =>
+                      setFormData({ ...formData, memberId: e.target.value })
+                    }
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Pilih Anggota</option>
+                    {members.map((member) => (
+                      <option key={member._id} value={member._id}>
+                        {member.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Periode Cicilan (bulan)
-                </label>
-                <Input
-                  type="number"
-                  name="installmentPeriod"
-                  value={formData.installmentPeriod}
-                  onChange={handleInputChange}
-                  required
-                  min="1"
-                />
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Produk Simpanan
+                  </label>
+                  <select
+                    value={formData.productId}
+                    onChange={(e) =>
+                      setFormData({ ...formData, productId: e.target.value })
+                    }
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Pilih Produk</option>
+                    {products.map((product) => (
+                      <option key={product._id} value={product._id}>
+                        {product.title} -{" "}
+                        {formatCurrency(product.depositAmount)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Tanggal
-                </label>
-                <Input
-                  type="date"
-                  name="savingsDate"
-                  value={formData.savingsDate}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Periode Angsuran
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={formData.installmentPeriod}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          installmentPeriod: parseInt(e.target.value),
+                        })
+                      }
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Deskripsi
-                </label>
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  rows="3"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  placeholder="Masukkan deskripsi (opsional)"
-                />
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Jumlah
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.amount}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          amount: parseInt(e.target.value),
+                        })
+                      }
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Bukti Transfer
-                </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                />
-                {filePreview && (
-                  <img
-                    src={filePreview}
-                    alt="Preview"
-                    className="mt-2 h-32 w-32 object-cover rounded"
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Tanggal
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.savingsDate}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          savingsDate: e.target.value,
+                        })
+                      }
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Tipe
+                    </label>
+                    <select
+                      value={formData.type}
+                      onChange={(e) =>
+                        setFormData({ ...formData, type: e.target.value })
+                      }
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    >
+                      <option value="Setoran">Setoran</option>
+                      <option value="Penarikan">Penarikan</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Keterangan
+                  </label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) =>
+                      setFormData({ ...formData, description: e.target.value })
+                    }
+                    rows="3"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   />
-                )}
-              </div>
+                </div>
 
-              <div className="flex justify-end space-x-2">
-                <Button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="bg-gray-300 hover:bg-gray-400"
-                >
-                  Batal
-                </Button>
-                <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-                  Simpan
-                </Button>
-              </div>
-            </form>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Bukti Pembayaran
+                  </label>
+                  <input
+                    type="file"
+                    onChange={handleFileChange}
+                    accept="image/*"
+                    className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  />
+                  <p className="mt-1 text-sm text-gray-500">
+                    Maksimal 5MB, format gambar
+                  </p>
+                </div>
+
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModal(false);
+                      resetForm();
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                  >
+                    Simpan
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

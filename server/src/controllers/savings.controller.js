@@ -1,76 +1,102 @@
 import { Savings } from "../models/savings.model.js";
-import { User } from "../models/user.model.js";
+import { Member } from "../models/member.model.js";
+import { Product } from "../models/product.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
+import { ApiError } from "../utils/ApiError.js";
+import {
+  createSavingsSchema,
+  updateSavingsSchema,
+  querySavingsSchema,
+} from "../validations/savings.validation.js";
 
 // Get all savings
 const getAllSavings = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, status, memberId } = req.query;
+  const { error, value } = querySavingsSchema.validate(req.query);
+  if (error) {
+    throw new ApiError(400, error.details[0].message);
+  }
+
+  const { page, limit, status, memberId } = value;
   const query = {};
 
   if (status) query.status = status;
   if (memberId) query.memberId = memberId;
 
   const savings = await Savings.find(query)
-    .populate("memberId", "name email")
+    .populate("memberId", "name email phone")
+    .populate("productId", "title depositAmount returnProfit termDuration")
     .sort({ createdAt: -1 })
-    .limit(limit * 1)
+    .limit(limit)
     .skip((page - 1) * limit);
 
   const total = await Savings.countDocuments(query);
 
-  res.status(200).json({
-    success: true,
-    data: savings,
-    pagination: {
-      currentPage: page,
-      totalPages: Math.ceil(total / limit),
-      totalItems: total,
-      itemsPerPage: limit,
-    },
-  });
+  res.status(200).json(
+    new ApiResponse(200, {
+      savings,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalItems: total,
+        itemsPerPage: limit,
+      },
+    })
+  );
 });
 
 // Get single savings by ID
 const getSavingsById = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const savings = await Savings.findById(id).populate("memberId", "name email");
+  const savings = await Savings.findById(id)
+    .populate("memberId", "name email phone")
+    .populate("productId");
 
   if (!savings) {
-    return res.status(404).json({
-      success: false,
-      message: "Data simpanan tidak ditemukan",
-    });
+    throw new ApiError(404, "Data simpanan tidak ditemukan");
   }
 
-  res.status(200).json({
-    success: true,
-    data: savings,
-  });
+  res.status(200).json(new ApiResponse(200, savings));
 });
 
 // Create new savings
 const createSavings = asyncHandler(async (req, res) => {
+  const { error, value } = createSavingsSchema.validate(req.body);
+  if (error) {
+    throw new ApiError(400, error.details[0].message);
+  }
+
   const {
     installmentPeriod,
     memberId,
+    productId,
     amount,
     savingsDate,
     type,
     description,
-  } = req.body;
+  } = value;
 
-  // Validate user exists
-  const user = await User.findById(memberId);
-  if (!user) {
-    return res.status(404).json({
-      success: false,
-      message: "Anggota tidak ditemukan",
-    });
+  // Validate member exists
+  const member = await Member.findById(memberId);
+  if (!member) {
+    throw new ApiError(404, "Anggota tidak ditemukan");
+  }
+
+  // Validate product exists
+  const product = await Product.findById(productId);
+  if (!product) {
+    throw new ApiError(404, "Produk tidak ditemukan");
+  }
+
+  // Validate amount against product limits
+  if (amount < product.depositAmount) {
+    throw new ApiError(400, `Jumlah simpanan minimal ${product.depositAmount}`);
   }
 
   const savings = new Savings({
     installmentPeriod,
     memberId,
+    productId,
     amount,
     savingsDate,
     type,
@@ -80,17 +106,20 @@ const createSavings = asyncHandler(async (req, res) => {
 
   await savings.save();
 
-  res.status(201).json({
-    success: true,
-    data: savings,
-    message: "Data simpanan berhasil dibuat",
-  });
+  res
+    .status(201)
+    .json(new ApiResponse(201, savings, "Data simpanan berhasil dibuat"));
 });
 
 // Update savings
 const updateSavings = asyncHandler(async (req, res) => {
+  const { error, value } = updateSavingsSchema.validate(req.body);
+  if (error) {
+    throw new ApiError(400, error.details[0].message);
+  }
+
   const { id } = req.params;
-  const { status, description } = req.body;
+  const { status, description } = value;
 
   const savings = await Savings.findByIdAndUpdate(
     id,
@@ -100,20 +129,17 @@ const updateSavings = asyncHandler(async (req, res) => {
       ...(req.file && { proofFile: req.file.path }),
     },
     { new: true, runValidators: true }
-  );
+  )
+    .populate("memberId", "name email phone")
+    .populate("productId");
 
   if (!savings) {
-    return res.status(404).json({
-      success: false,
-      message: "Data simpanan tidak ditemukan",
-    });
+    throw new ApiError(404, "Data simpanan tidak ditemukan");
   }
 
-  res.status(200).json({
-    success: true,
-    data: savings,
-    message: "Data simpanan berhasil diperbarui",
-  });
+  res
+    .status(200)
+    .json(new ApiResponse(200, savings, "Data simpanan berhasil diperbarui"));
 });
 
 // Delete savings
@@ -123,27 +149,29 @@ const deleteSavings = asyncHandler(async (req, res) => {
   const savings = await Savings.findByIdAndDelete(id);
 
   if (!savings) {
-    return res.status(404).json({
-      success: false,
-      message: "Data simpanan tidak ditemukan",
-    });
+    throw new ApiError(404, "Data simpanan tidak ditemukan");
   }
 
-  res.status(200).json({
-    success: true,
-    message: "Data simpanan berhasil dihapus",
-  });
+  res
+    .status(200)
+    .json(new ApiResponse(200, null, "Data simpanan berhasil dihapus"));
 });
 
 // Get savings by member
 const getSavingsByMember = asyncHandler(async (req, res) => {
+  const { error, value } = querySavingsSchema.validate(req.query);
+  if (error) {
+    throw new ApiError(400, error.details[0].message);
+  }
+
   const { memberId } = req.params;
-  const { page = 1, limit = 10 } = req.query;
+  const { page, limit } = value;
 
   const savings = await Savings.find({ memberId })
-    .populate("memberId", "name email")
+    .populate("memberId", "name email phone")
+    .populate("productId", "title depositAmount returnProfit termDuration")
     .sort({ createdAt: -1 })
-    .limit(limit * 1)
+    .limit(limit)
     .skip((page - 1) * limit);
 
   const total = await Savings.countDocuments({ memberId });
@@ -167,21 +195,59 @@ const getSavingsByMember = asyncHandler(async (req, res) => {
   );
   const balance = totalSavings - totalWithdrawals;
 
-  res.status(200).json({
-    success: true,
-    data: savings,
-    summary: {
+  res.status(200).json(
+    new ApiResponse(200, {
+      savings,
+      summary: {
+        totalSavings,
+        totalWithdrawals,
+        balance,
+      },
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalItems: total,
+        itemsPerPage: limit,
+      },
+    })
+  );
+});
+
+// Get savings summary
+const getSavingsSummary = asyncHandler(async (req, res) => {
+  const { error, value } = querySavingsSchema.validate(req.query);
+  if (error) {
+    throw new ApiError(400, error.details[0].message);
+  }
+
+  const { memberId } = value;
+  const matchQuery = { status: "Approved" };
+  if (memberId) matchQuery.memberId = memberId;
+
+  const savings = await Savings.aggregate([
+    { $match: matchQuery },
+    {
+      $group: {
+        _id: "$type",
+        totalAmount: { $sum: "$amount" },
+        count: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const totalSavings =
+    savings.find((s) => s._id === "Setoran")?.totalAmount || 0;
+  const totalWithdrawals =
+    savings.find((s) => s._id === "Penarikan")?.totalAmount || 0;
+  const balance = totalSavings - totalWithdrawals;
+
+  res.status(200).json(
+    new ApiResponse(200, {
       totalSavings,
       totalWithdrawals,
       balance,
-    },
-    pagination: {
-      currentPage: page,
-      totalPages: Math.ceil(total / limit),
-      totalItems: total,
-      itemsPerPage: limit,
-    },
-  });
+    })
+  );
 });
 
 export {
@@ -191,4 +257,5 @@ export {
   updateSavings,
   deleteSavings,
   getSavingsByMember,
+  getSavingsSummary,
 };

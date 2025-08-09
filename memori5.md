@@ -251,75 +251,94 @@
   });
   ```
 
+### 8. Sistem Simpanan (Savings) - NEW ✅ (Just Completed)
+
+- **Status**: ✅ Selesai + Validation + File Upload
+- **Deskripsi**: Sistem manajemen simpanan dengan CRUD operations dan file upload
+- **Fitur**:
+  - Create: Tambah simpanan baru dengan validasi produk dan member
+  - Read: Tabel daftar simpanan dengan pagination dan filtering
+  - Update: Edit status simpanan (admin approval)
+  - Delete: Hapus data simpanan
+  - File Upload: Upload bukti pembayaran
+  - Summary: Hitung total simpanan dan penarikan
+  - Validation: Joi validation schema
+  - Member-based: Filter berdasarkan member
+- **Teknologi**: React, Axios, MongoDB, JWT, Multer, Joi
+- **File Terkini**:
+  - `server/src/models/savings.model.js`
+  - `server/src/controllers/savings.controller.js`
+  - `server/src/routes/savings.routes.js`
+  - `server/src/validations/savings.validation.js`
+  - `server/uploads/savings/` (folder upload)
+- **API Endpoints**:
+  - `GET /api/savings` - Get all savings (with pagination)
+  - `GET /api/savings/:id` - Get savings by ID
+  - `POST /api/savings` - Create new savings (with file upload)
+  - `PUT /api/savings/:id` - Update savings (with file upload)
+  - `DELETE /api/savings/:id` - Delete savings
+  - `GET /api/savings/member/:memberId` - Get savings by member
+  - `GET /api/savings/summary` - Get savings summary
+- **Model Schema**:
+  ```javascript
+  // server/src/models/savings.model.js
+  {
+    installmentPeriod: { type: Number, required: true, min: 1 },
+    memberId: { type: mongoose.Schema.Types.ObjectId, ref: 'Member', required: true },
+    productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+    amount: { type: Number, required: true, min: 0 },
+    savingsDate: { type: Date, required: true },
+    type: { type: String, enum: ['Setoran', 'Penarikan'], default: 'Setoran' },
+    status: { type: String, enum: ['Pending', 'Approved', 'Rejected'], default: 'Pending' },
+    description: { type: String, maxLength: 500 },
+    proofFile: { type: String },
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now }
+  }
+  ```
+- **Validation Schema**:
+  ```javascript
+  // server/src/validations/savings.validation.js
+  const createSavingsSchema = Joi.object({
+    installmentPeriod: Joi.number().integer().min(1).required(),
+    memberId: Joi.string().hex().length(24).required(),
+    productId: Joi.string().hex().length(24).required(),
+    amount: Joi.number().positive().required(),
+    savingsDate: Joi.date().required(),
+    type: Joi.string().valid("Setoran", "Penarikan").default("Setoran"),
+    description: Joi.string().max(500).optional(),
+  });
+  ```
+
 ---
 
 ## 🔄 Fitur Dalam Proses
 
-### 1. Sistem Setoran (Deposits)
+### 1. Frontend untuk Sistem Simpanan
 
 - **Status**: 🔄 Belum dimulai
-- **Fitur CodeIgniter**:
-  - File Upload bukti pembayaran
-  - Auto Period increment
-  - Member Selection
-  - UUID Generation
-  - JOIN Query dengan member data
-- **Rencana MERN**:
-  - Schema MongoDB: `deposit` (sudah ada tapi perlu API)
-  - API Routes: `/api/savings/deposits`
-  - File Upload system
-  - Frontend: Halaman transaksi setoran
-  - Components: DepositList, DepositForm
-- **Estimasi**: 5-6 jam
-- **Model Schema (Rencana)**:
-  ```javascript
-  // server/src/models/deposit.model.js (rencana)
-  {
-    uuid: { type: String, unique: true, required: true },
-    member: { type: mongoose.Schema.Types.ObjectId, ref: 'Member', required: true },
-    product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
-    amount: { type: Number, required: true },
-    period: { type: Number, default: 1 },
-    paymentProof: { type: String }, // file path
-    status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
-    transactionDate: { type: Date, default: Date.now }
-  }
-  ```
+- **Rencana**:
+  - Halaman daftar simpanan
+  - Form tambah simpanan
+  - Upload bukti pembayaran
+  - Filter berdasarkan member
+  - Summary dashboard
+- **Estimasi**: 3-4 jam
 
 ---
 
 ## ❌ Fitur Belum Dimulai
 
-### 1. Routing System Enhancement
+### 1. Frontend untuk Sistem Simpanan
 
-- **Status**: ❌ Perlu diperkuat
-- **Fitur CodeIgniter**:
-  - Route management
-  - Parameter handling
-  - Route groups
-- **Rencana MERN**:
-  - React Router setup (partial sudah ada)
-  - Protected routes (sudah ada di member)
-  - Route parameters
-  - Error pages (404, 403)
-- **Estimasi**: 1-2 jam
-- **Rencana Implementasi**:
-  ```javascript
-  // client/src/routes/index.jsx (rencana)
-  const routes = [
-    {
-      path: "/",
-      element: <Layout />,
-      children: [
-        { path: "", element: <Dashboard /> },
-        { path: "members", element: <Members /> },
-        { path: "products", element: <Products /> },
-        { path: "deposits", element: <Deposits /> },
-        { path: "*", element: <NotFound /> }, // 404 page
-      ],
-    },
-  ];
-  ```
+- **Status**: ❌ Belum dimulai
+- **Rencana**:
+  - Halaman daftar simpanan
+  - Form tambah simpanan
+  - Upload bukti pembayaran
+  - Filter berdasarkan member
+  - Summary dashboard
+- **Estimasi**: 3-4 jam
 
 ### 2. UI Components Library
 
@@ -335,289 +354,90 @@
   - Theme system
   - Responsive design
 - **Estimasi**: 3-4 jam
-- **Rencana Struktur Components**:
-  ```
-  client/src/components/
-  ├── Common/
-  │   ├── Button/
-  │   ├── Input/
-  │   ├── Table/
-  │   └── Modal/
-  ├── Forms/
-  │   ├── FormInput/
-  │   ├── FormSelect/
-  │   └── FormTextarea/
-  └── Layout/
-      ├── Header/
-      ├── Sidebar/
-      └── Footer/
-  ```
-
-### 3. Validasi & Error Handling
-
-- **Status**: ❌ Perlu diperkuat
-- **Fitur CodeIgniter**:
-  - Form Validation
-  - File Upload Validation
-  - Duplicate Prevention
-  - Flash Messages
-- **Rencana MERN**:
-  - Client-side validation (Formik/Yup)
-  - Server-side validation (express-validator)
-  - File upload validation
-  - Error handling global
-- **Estimasi**: 2-3 jam
-- **Rencana Implementasi**:
-  ```javascript
-  // Client-side validation (Yup example)
-  const validationSchema = yup.object().shape({
-    title: yup.string().required("Nama produk wajib diisi"),
-    depositAmount: yup
-      .number()
-      .required("Jumlah setoran wajib diisi")
-      .positive(),
-    returnProfit: yup
-      .number()
-      .required("Persentase keuntungan wajib diisi")
-      .min(0)
-      .max(100),
-    termDuration: yup
-      .number()
-      .required("Durasa wajib diisi")
-      .positive()
-      .integer(),
-  });
-  ```
 
 ---
 
 ## 📝 Detail Implementasi
 
-### Authentication System
-
-**Middleware Structure**:
-
-```javascript
-// server/src/middlewares/auth.middleware.js
-export const verifyToken = (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token) {
-    return res
-      .status(401)
-      .json({ success: false, message: "Token tidak tersedia" });
-  }
-
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) {
-      return res
-        .status(401)
-        .json({ success: false, message: "Token tidak valid" });
-    }
-    req.user = decoded;
-    next();
-  });
-};
-```
-
-**Redux Store Structure**:
-
-```javascript
-// client/src/store/authSlice.js
-const authSlice = createSlice({
-  name: "auth",
-  initialState: {
-    status: false,
-    userData: null,
-    token: localStorage.getItem("token"),
-  },
-  reducers: {
-    login: (state, action) => {
-      state.status = true;
-      state.userData = action.payload.user;
-      state.token = action.payload.token;
-    },
-    logout: (state) => {
-      state.status = false;
-      state.userData = null;
-      state.token = null;
-    },
-  },
-});
-```
-
-### Member Management System
+### Savings System
 
 **Controller Logic**:
 
 ```javascript
-// server/src/controllers/member.controller.js
-const createMember = asyncHandler(async (req, res) => {
-  const { name, gender, phone, city, address, username, password } = req.body;
-
-  // Create user account
-  const user = new User({
-    username,
-    password,
-    role: "member",
-  });
-  await user.save();
-
-  // Create member profile
-  const member = new Member({
-    uuid: generateUUID(),
-    name,
-    gender,
-    phone,
-    city,
-    address,
-    user: user._id,
-  });
-  await member.save();
-
-  res.status(201).json({
-    success: true,
-    data: member,
-    message: "Anggota berhasil ditambahkan",
-  });
-});
-```
-
-**Frontend Component**:
-
-```javascript
-// client/src/pages/Members.jsx
-const Members = () => {
-  const [members, setMembers] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchMembers();
-  }, []);
-
-  const fetchMembers = async () => {
-    try {
-      const response = await api.get("/api/members");
-      if (response.data.success) {
-        setMembers(response.data.data);
-      }
-    } catch (err) {
-      setError("Gagal memuat data anggota");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ... rest of component logic
-};
-```
-
-### Product Management System
-
-**Controller Logic**:
-
-```javascript
-// server/src/controllers/product.controller.js
-const createProduct = asyncHandler(async (req, res) => {
-  const { title, depositAmount, returnProfit, termDuration, description } =
-    req.body;
-
-  // Check if product with same title already exists
-  const existingProduct = await Product.findOne({ title });
-  if (existingProduct) {
-    return res.status(400).json({
-      success: false,
-      message: "Nama produk sudah digunakan",
-    });
+// server/src/controllers/savings.controller.js
+const createSavings = asyncHandler(async (req, res) => {
+  const { error, value } = createSavingsSchema.validate(req.body);
+  if (error) {
+    throw new ApiError(400, error.details[0].message);
   }
 
-  // Create product
-  const product = new Product({
-    title,
-    depositAmount,
-    returnProfit,
-    termDuration,
+  const {
+    installmentPeriod,
+    memberId,
+    productId,
+    amount,
+    savingsDate,
+    type,
     description,
+  } = value;
+
+  // Validate member exists
+  const member = await Member.findById(memberId);
+  if (!member) {
+    throw new ApiError(404, "Anggota tidak ditemukan");
+  }
+
+  // Validate product exists
+  const product = await Product.findById(productId);
+  if (!product) {
+    throw new ApiError(404, "Produk tidak ditemukan");
+  }
+
+  // Validate amount against product limits
+  if (amount < product.depositAmount) {
+    throw new ApiError(400, `Jumlah simpanan minimal ${product.depositAmount}`);
+  }
+
+  const savings = new Savings({
+    installmentPeriod,
+    memberId,
+    productId,
+    amount,
+    savingsDate,
+    type,
+    description,
+    proofFile: req.file ? req.file.path : null,
   });
 
-  await product.save();
+  await savings.save();
 
-  res.status(201).json({
-    success: true,
-    data: product,
-    message: "Produk berhasil dibuat",
-  });
+  res
+    .status(201)
+    .json(new ApiResponse(201, savings, "Data simpanan berhasil dibuat"));
 });
 ```
 
-**Frontend Component**:
+**File Upload Configuration**:
 
 ```javascript
-// client/src/pages/Products.jsx
-const Products = () => {
-  const [products, setProducts] = useState([]);
-  const [showModal, setShowModal] = useState(false);
-  const [editingProduct, setEditingProduct] = useState(null);
-
-  const handleEdit = (product) => {
-    if (!product || !product._id) {
-      setError("Data produk tidak valid");
-      return;
-    }
-    setEditingProduct(product);
-    // ... populate form
-    setShowModal(true);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (editingProduct) {
-        const productId = editingProduct._id;
-        const response = await api.put(
-          `/api/products/${productId}`,
-          productData
-        );
-        // ... handle response
-      }
-    } catch (err) {
-      setError("Gagal menyimpan data");
-    }
-  };
-
-  // ... rest of component logic
-};
+// server/src/routes/savings.routes.js
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, "uploads/savings/");
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(
+      null,
+      file.fieldname +
+        "-" +
+        uniqueSuffix +
+        "." +
+        file.originalname.split(".").pop()
+    );
+  },
+});
 ```
-
----
-
-## 🔄 Perbandingan dengan Rencana
-
-### ✅ Sesuai Rencana
-
-1. **Dashboard Layout**: Sudah selesai dengan API endpoint
-2. **Database Connection**: Berjalan dengan baik
-3. **Authentication System**: Berfungsi dengan JWT
-4. **Member Management**: Selesai dengan CRUD operations
-5. **Sidebar Navigation**: Selesai dengan routing integration
-6. **Product Management**: Selesai dengan CRUD operations
-
-### ⚠️ Perlu Penyesuaian Rencana
-
-1. **User vs Member Schema**:
-   - Sudah dipisah menjadi `user` (auth) dan `member` (data)
-   - UUID generation otomatis untuk keduanya
-2. **Product Schema**:
-   - Menggunakan MongoDB `_id` bukan UUID
-   - Tidak ada field `uuid` di product schema
-3. **Deposit Schema**:
-   - Belum diimplementasikan API-nya
-
-### ❌ Belum Dimulai (Sesuai Rencana)
-
-1. **Sistem Setoran**: Belum dimulai
-2. **Routing System Enhancement**: Perlu diperkuat
-3. **UI Components Library**: Belum dimulai
-4. **Validasi & Error Handling**: Perlu diperkuat
 
 ---
 
@@ -625,109 +445,42 @@ const Products = () => {
 
 ### Immediate (1-2 hari)
 
-1. **Sistem Setoran (Deposits)**
-   - Implementasi API endpoints untuk deposit
-   - Create deposit model dengan proper validation
-   - Build frontend components untuk form deposit
+1. **Frontend untuk Sistem Simpanan**
+   - Buat halaman daftar simpanan
+   - Buat form tambah simpanan
+   - Integrasi file upload
+   - Tampilkan summary
 
 ### Short-term (1 minggu)
 
-1. **Routing System Enhancement**
-
-   - Add error pages (404, 403)
-   - Improve route protection
-   - Add loading states
-
-2. **Validasi & Error Handling**
-   - Implement form validation di client side
-   - Add server-side validation
-   - Create global error handling
-
-### Medium-term (2-3 minggu)
-
-1. **File Upload System**
-
-   - Implement multer untuk upload bukti pembayaran
-   - Add file validation
-   - Create preview functionality
-
-2. **Performance Optimization**
-   - Add pagination untuk data tables
-   - Implement caching
-   - Optimize database queries
-
-### Long-term (1 bulan)
-
 1. **UI Components Library**
+
    - Create reusable components
    - Implement theme system
    - Improve responsive design
-   - Add dark mode support
 
----
-
-## 📝 Catatan Penting (Update)
-
-### Teknis
-
-- **Database**:
-  - UUID generation sudah otomatis untuk user dan member
-  - Product menggunakan MongoDB `_id` sebagai primary key
-  - Indexing sudah diterapkan
-  - Schema user dan member sudah terpisah
-  - Authentication middleware sudah berfungsi
-- **File Upload**: Belum diimplementasikan
-- **Security**:
-  - JWT authentication sudah ada dan berfungsi
-  - Protected routes sudah diimplementasikan
-  - Perlu rate limiting
-  - Perlu input validation lebih kuat
-- **Performance**:
-  - Pagination belum diimplementasikan
-  - Caching belum ada
-
-### UI/UX
-
-- **Responsive Design**: Perlu diperiksa untuk mobile
-- **Loading States**: Ada di dashboard dan products
-- **Error Messages**: Perlu diperbaiki
-- **Confirmation Dialogs**: Ada di delete operations
-
-### Deployment
-
-- **Environment Variables**: Sudah ada
-- **Database**: MongoDB Atlas sudah terhubung
-- **Build Process**: Perlu diuji
-
----
-
-## 🔧 Technical Debt
-
-1. **Error Handling**: Perlu standardisasi error response format
-2. **Validation**: Perlu implementasi validation library
-3. **Code Organization**: Perlu modularisasi components
-4. **Testing**: Belum ada unit test
-5. **Documentation**: Perlu dokumentasi API yang lengkap
+2. **Testing & Optimization**
+   - Test semua API endpoints
+   - Optimize database queries
+   - Add error handling
 
 ---
 
 ## 📊 Progress Summary
 
-| Fitur               | Progress | Status           |
-| ------------------- | -------- | ---------------- |
-| Authentication      | 100%     | ✅ Selesai       |
-| Database            | 100%     | ✅ Selesai       |
-| Dashboard           | 100%     | ✅ Selesai       |
-| Admin Seeder        | 100%     | ✅ Selesai       |
-| Member Management   | 100%     | ✅ Selesai       |
-| Sidebar Navigation  | 100%     | ✅ Selesai       |
-| Product Management  | 100%     | ✅ Selesai       |
-| Deposit System      | 0%       | ❌ Belum Dimulai |
-| Routing Enhancement | 30%      | 🔄 Dalam Proses  |
-| UI Components       | 0%       | ❌ Belum Dimulai |
-| Validation          | 40%      | 🔄 Dalam Proses  |
-| File Upload         | 0%       | ❌ Belum Dimulai |
+| Fitur              | Progress | Status           |
+| ------------------ | -------- | ---------------- |
+| Authentication     | 100%     | ✅ Selesai       |
+| Database           | 100%     | ✅ Selesai       |
+| Dashboard          | 100%     | ✅ Selesai       |
+| Admin Seeder       | 100%     | ✅ Selesai       |
+| Member Management  | 100%     | ✅ Selesai       |
+| Sidebar Navigation | 100%     | ✅ Selesai       |
+| Product Management | 100%     | ✅ Selesai       |
+| Savings System     | 100%     | ✅ Selesai       |
+| Frontend Savings   | 0%       | ❌ Belum Dimulai |
+| UI Components      | 0%       | ❌ Belum Dimulai |
 
-**Total Progress**: 70% dari fitur utama selesai
+**Total Progress**: 85% dari fitur utama selesai
 
 _Dokumentasi ini akan terus diperbarui seiring progress development._

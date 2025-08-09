@@ -14,8 +14,13 @@ const savingsSchema = new mongoose.Schema(
     },
     memberId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "Member",
       required: [true, "ID anggota wajib diisi"],
+    },
+    productId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Product",
+      required: [true, "ID produk wajib diisi"],
     },
     amount: {
       type: Number,
@@ -55,16 +60,24 @@ const savingsSchema = new mongoose.Schema(
 
 // Virtual untuk mengakses data anggota
 savingsSchema.virtual("member", {
-  ref: "User",
+  ref: "Member",
   localField: "memberId",
+  foreignField: "_id",
+  justOne: true,
+});
+
+// Virtual untuk mengakses data produk
+savingsSchema.virtual("product", {
+  ref: "Product",
+  localField: "productId",
   foreignField: "_id",
   justOne: true,
 });
 
 // Index untuk query yang sering digunakan
 savingsSchema.index({ memberId: 1, createdAt: -1 });
+savingsSchema.index({ productId: 1, createdAt: -1 });
 savingsSchema.index({ status: 1, createdAt: -1 });
-// UUID index ditambahkan oleh unique constraint
 
 // Pre-save hook untuk generate UUID
 savingsSchema.pre("save", async function (next) {

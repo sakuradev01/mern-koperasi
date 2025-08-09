@@ -6,6 +6,7 @@ import {
   updateSavings,
   deleteSavings,
   getSavingsByMember,
+  getSavingsSummary,
 } from "../controllers/savings.controller.js";
 import { verifyToken } from "../middlewares/auth.middleware.js";
 import multer from "multer";
@@ -48,5 +49,6 @@ router
   .delete(deleteSavings);
 
 router.route("/member/:memberId").get(getSavingsByMember);
+router.route("/summary").get(getSavingsSummary);
 
 export default router;
