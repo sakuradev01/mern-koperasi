@@ -36,8 +36,8 @@ jobs:
           remote_host: ${{ secrets.EC2_HOST }}
           remote_user: ${{ secrets.EC2_USER }}
           remote_key: ${{ secrets.SSH_PRIVATE_KEY }}
-          path: "./" # Kirim semua file dari root repo
-          remote_path: "/home/ubuntu/app-staging/" # Salin ke folder sementara di EC2
+          path: "./" 
+          remote_path: "/home/${{ secrets.EC2_USER }}/app-staging/"
 
       - name: Run deployment scripts on EC2
         uses: appleboy/ssh-action@master
@@ -46,27 +46,26 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Hentikan layanan yang sedang berjalan
+            # Menghentikan layanan yang sedang berjalan
             pm2 stop mern-koperasi-backend || true
             pm2 delete mern-koperasi-backend || true
             
-            # Hapus konten lama di Nginx
+            # Menghapus file lama di Nginx
             sudo rm -rf /var/www/html/*
             
-            # Salin file baru dari staging ke tempat yang benar
-            sudo cp -r /home/ubuntu/app-staging/client/dist/* /var/www/html/
+            # Menyalin file baru dari staging ke tempat yang benar
+            sudo cp -r /home/${{ secrets.EC2_USER }}/app-staging/client/dist/. /var/www/html/
             
-            # Ganti server_url di konfigurasi frontend
-            # Gunakan sed yang lebih aman untuk menghindari masalah karakter
+            # Mengganti URL server di konfigurasi frontend
             sudo sed -i "s|VITE_SERVER_URL=\"http://localhost:5173\"|VITE_SERVER_URL=\"http://${{ secrets.EC2_HOST }}:5000\"|g" /var/www/html/assets/conf.js
             
-            # Jalankan backend
-            cd /home/ubuntu/app-staging/server
+            # Menjalankan backend
+            cd /home/${{ secrets.EC2_USER }}/app-staging/server
             npm install --production
             pm2 start index.js --name "mern-koperasi-backend"
             
-            # Simpan konfigurasi PM2
+            # Menyimpan konfigurasi PM2
             pm2 save --force
             
-            # Hapus folder staging
-            sudo rm -rf /home/ubuntu/app-staging
+            # Membersihkan folder staging
+            sudo rm -rf /home/${{ secrets.EC2_USER }}/app-staging
