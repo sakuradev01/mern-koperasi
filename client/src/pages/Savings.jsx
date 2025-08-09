@@ -29,7 +29,12 @@ const Savings = () => {
       const response = await axios.get(`${API_URL}/api/savings`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = response.data?.data || response.data || [];
+      const data =
+        response.data?.data?.savings ||
+        response.data?.savings ||
+        response.data?.data ||
+        response.data ||
+        [];
       setSavings(Array.isArray(data) ? data : []);
     } catch {
       toast.error("Gagal memuat data simpanan");
