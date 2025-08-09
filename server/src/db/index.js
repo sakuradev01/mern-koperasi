@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import conf from "../conf/conf.js";
 import { User } from "../models/user.model.js";
 import { Product } from "../models/product.model.js";
-import { Deposit } from "../models/deposit.model.js";
+import { Savings } from "../models/savings.model.js";
 import { Member } from "../models/member.model.js";
 
 const connectDB = async () => {
@@ -20,4 +20,4 @@ const connectDB = async () => {
 };
 
 export default connectDB;
-export { User, Product, Deposit, Member };
+export { User, Product, Savings, Member };

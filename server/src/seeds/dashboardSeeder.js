@@ -1,9 +1,9 @@
-import { User, Product, Deposit } from "../db/index.js";
+import { User, Product, Savings } from "../db/index.js";
 
 const seedDashboardData = async () => {
   try {
     // Hapus data yang sudah ada kecuali admin
-    await Deposit.deleteMany({});
+    await Savings.deleteMany({});
     await Product.deleteMany({});
     await User.deleteMany({ role: { $ne: "admin" } });
 
@@ -80,12 +80,12 @@ const seedDashboardData = async () => {
       },
     ]);
 
-    // Buat data transaksi/deposit
-    const depositsData = [
+    // Buat data transaksi/savings
+    const savingsData = [
       {
         memberId: members[0]._id,
         amount: 1000000,
-        depositDate: new Date("2024-01-15"),
+        savingsDate: new Date("2024-01-15"),
         type: "Setoran",
         description: "Setoran awal",
         installmentPeriod: 12,
@@ -93,7 +93,7 @@ const seedDashboardData = async () => {
       {
         memberId: members[1]._id,
         amount: 2500000,
-        depositDate: new Date("2024-01-20"),
+        savingsDate: new Date("2024-01-20"),
         type: "Setoran",
         description: "Setoran bulanan Januari",
         installmentPeriod: 6,
@@ -101,7 +101,7 @@ const seedDashboardData = async () => {
       {
         memberId: members[2]._id,
         amount: 5000000,
-        depositDate: new Date("2024-02-01"),
+        savingsDate: new Date("2024-02-01"),
         type: "Setoran",
         description: "Setoran tahunan",
         installmentPeriod: 12,
@@ -109,7 +109,7 @@ const seedDashboardData = async () => {
       {
         memberId: members[3]._id,
         amount: 750000,
-        depositDate: new Date("2024-02-10"),
+        savingsDate: new Date("2024-02-10"),
         type: "Setoran",
         description: "Setoran tambahan",
         installmentPeriod: 3,
@@ -117,7 +117,7 @@ const seedDashboardData = async () => {
       {
         memberId: members[4]._id,
         amount: 2000000,
-        depositDate: new Date("2024-02-15"),
+        savingsDate: new Date("2024-02-15"),
         type: "Setoran",
         description: "Setoran untuk produk bulanan",
         installmentPeriod: 6,
@@ -125,7 +125,7 @@ const seedDashboardData = async () => {
       {
         memberId: members[0]._id,
         amount: 500000,
-        depositDate: new Date("2024-02-20"),
+        savingsDate: new Date("2024-02-20"),
         type: "Setoran",
         description: "Setoran bulanan Februari",
         installmentPeriod: 12,
@@ -133,7 +133,7 @@ const seedDashboardData = async () => {
       {
         memberId: members[1]._id,
         amount: 1000000,
-        depositDate: new Date("2024-03-01"),
+        savingsDate: new Date("2024-03-01"),
         type: "Setoran",
         description: "Setoran bulanan Maret",
         installmentPeriod: 6,
@@ -141,7 +141,7 @@ const seedDashboardData = async () => {
       {
         memberId: members[2]._id,
         amount: 3000000,
-        depositDate: new Date("2024-03-05"),
+        savingsDate: new Date("2024-03-05"),
         type: "Setoran",
         description: "Setoran tambahan investasi",
         installmentPeriod: 12,
@@ -149,7 +149,7 @@ const seedDashboardData = async () => {
       {
         memberId: members[3]._id,
         amount: 1500000,
-        depositDate: new Date("2024-03-10"),
+        savingsDate: new Date("2024-03-10"),
         type: "Setoran",
         description: "Setoran untuk liburan",
         installmentPeriod: 3,
@@ -157,34 +157,34 @@ const seedDashboardData = async () => {
       {
         memberId: members[4]._id,
         amount: 4000000,
-        depositDate: new Date("2024-03-15"),
+        savingsDate: new Date("2024-03-15"),
         type: "Setoran",
         description: "Setoran semesteran",
         installmentPeriod: 6,
       },
     ];
 
-    // Tambahkan UUID untuk setiap deposit
-    const depositsWithUuid = depositsData.map((deposit, index) => {
+    // Tambahkan UUID untuk setiap savings
+    const savingsWithUuid = savingsData.map((saving, index) => {
       const timestamp = Date.now().toString();
       const random = Math.random().toString(36).substr(2, 5);
       return {
-        ...deposit,
-        uuid: `DEPOSIT_${timestamp}_${index}_${random}`.toUpperCase(),
+        ...saving,
+        uuid: `SAVINGS_${timestamp}_${index}_${random}`.toUpperCase(),
       };
     });
 
-    const deposits = await Deposit.create(depositsWithUuid);
+    const savings = await Savings.create(savingsWithUuid);
 
     console.log("✅ Dashboard data seeded successfully!");
     console.log(`- Created ${members.length} members`);
     console.log(`- Created ${products.length} products`);
-    console.log(`- Created ${deposits.length} deposits`);
+    console.log(`- Created ${savings.length} savings`);
 
     return {
       members: members.length,
       products: products.length,
-      deposits: deposits.length,
+      savings: savings.length,
     };
   } catch (error) {
     console.error("❌ Error seeding dashboard data:", error);

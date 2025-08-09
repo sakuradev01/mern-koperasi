@@ -1,4 +1,4 @@
-import { User, Product, Deposit } from "../db/index.js";
+import { User, Product, Savings } from "../db/index.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const getDashboardStats = asyncHandler(async (req, res) => {
@@ -6,8 +6,8 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     // Get total members count
     const totalMembers = await User.countDocuments();
 
-    // Get total deposits amount
-    const totalDepositsResult = await Deposit.aggregate([
+    // Get total savings amount
+    const totalSavingsResult = await Savings.aggregate([
       {
         $group: {
           _id: null,
@@ -15,17 +15,17 @@ const getDashboardStats = asyncHandler(async (req, res) => {
         },
       },
     ]);
-    const totalDeposits = totalDepositsResult[0]?.totalAmount || 0;
+    const totalSavings = totalSavingsResult[0]?.totalAmount || 0;
 
     // Get total products count
     const totalProducts = await Product.countDocuments();
 
-    // Get recent transactions (last 10 deposits)
-    const recentTransactions = await Deposit.find()
+    // Get recent transactions (last 10 savings)
+    const recentTransactions = await Savings.find()
       .populate("memberId", "name uuid")
       .sort({ createdAt: -1 })
       .limit(10)
-      .select("amount depositDate type memberId description");
+      .select("amount savingsDate type memberId description");
 
     // Format transactions for frontend
     const formattedTransactions = recentTransactions.map((transaction) => ({
@@ -33,8 +33,8 @@ const getDashboardStats = asyncHandler(async (req, res) => {
       member: transaction.memberId?.name || "Unknown",
       memberUuid: transaction.memberId?.uuid || "",
       amount: transaction.amount,
-      date: transaction.depositDate
-        ? new Date(transaction.depositDate).toLocaleDateString("id-ID")
+      date: transaction.savingsDate
+        ? new Date(transaction.savingsDate).toLocaleDateString("id-ID")
         : new Date(transaction.createdAt).toLocaleDateString("id-ID"),
       type: transaction.type || "Setoran",
       description: transaction.description || "",
@@ -44,7 +44,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
       success: true,
       data: {
         totalMembers,
-        totalDeposits,
+        totalSavings,
         totalProducts,
         recentTransactions: formattedTransactions,
       },

@@ -14,16 +14,7 @@ const Sidebar = () => {
     {
       title: "Simpanan",
       icon: "💰",
-      children: [
-        {
-          title: "Setoran",
-          path: "/savings/deposit",
-        },
-        {
-          title: "Penarikan",
-          path: "/savings/withdraw",
-        },
-      ],
+      path: "/simpanan",
     },
     {
       title: "Master Data",
@@ -31,21 +22,11 @@ const Sidebar = () => {
       children: [
         {
           title: "Anggota",
-          path: "/members",
+          path: "/master/anggota",
         },
         {
           title: "Produk",
-          path: "/products",
-          children: [
-            {
-              title: "Simpanan",
-              path: "/products/deposit",
-            },
-            {
-              title: "Pinjaman",
-              path: "/products/loan",
-            },
-          ],
+          path: "/master/produk",
         },
       ],
     },

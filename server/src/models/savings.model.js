@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const depositSchema = new mongoose.Schema(
+const savingsSchema = new mongoose.Schema(
   {
     uuid: {
       type: String,
@@ -19,12 +19,12 @@ const depositSchema = new mongoose.Schema(
     },
     amount: {
       type: Number,
-      required: [true, "Jumlah setoran wajib diisi"],
-      min: [0, "Jumlah setoran tidak boleh negatif"],
+      required: [true, "Jumlah simpanan wajib diisi"],
+      min: [0, "Jumlah simpanan tidak boleh negatif"],
     },
-    depositDate: {
+    savingsDate: {
       type: Date,
-      required: [true, "Tanggal setoran wajib diisi"],
+      required: [true, "Tanggal simpanan wajib diisi"],
     },
     proofFile: {
       type: String,
@@ -54,7 +54,7 @@ const depositSchema = new mongoose.Schema(
 );
 
 // Virtual untuk mengakses data anggota
-depositSchema.virtual("member", {
+savingsSchema.virtual("member", {
   ref: "User",
   localField: "memberId",
   foreignField: "_id",
@@ -62,21 +62,21 @@ depositSchema.virtual("member", {
 });
 
 // Index untuk query yang sering digunakan
-depositSchema.index({ memberId: 1, createdAt: -1 });
-depositSchema.index({ status: 1, createdAt: -1 });
+savingsSchema.index({ memberId: 1, createdAt: -1 });
+savingsSchema.index({ status: 1, createdAt: -1 });
 // UUID index ditambahkan oleh unique constraint
 
 // Pre-save hook untuk generate UUID
-depositSchema.pre("save", async function (next) {
+savingsSchema.pre("save", async function (next) {
   // Generate UUID jika baru dan belum ada
   if (this.isNew && !this.uuid) {
     const timestamp = Date.now().toString();
     const random = Math.random().toString(36).substr(2, 5);
-    this.uuid = `DEPOSIT_${timestamp}_${random}`.toUpperCase();
+    this.uuid = `SAVINGS_${timestamp}_${random}`.toUpperCase();
   }
   next();
 });
 
-const Deposit = mongoose.model("Deposit", depositSchema);
+const Savings = mongoose.model("Savings", savingsSchema);
 
-export { Deposit };
+export { Savings };
