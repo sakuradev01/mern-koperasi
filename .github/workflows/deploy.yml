@@ -29,10 +29,6 @@ jobs:
       - name: Build React Frontend
         run: npm run build
         working-directory: ./client
-
-      - name: Install server dependencies
-        run: npm install
-        working-directory: ./server
       
       # Step 1: Menyalin file ke EC2
       - name: Copy files to EC2
@@ -63,7 +59,12 @@ jobs:
             sudo cp -r /home/${{ secrets.EC2_USER }}/app-staging/client/dist/. /var/www/html/
             
             # Mengganti URL server di konfigurasi frontend
-            sudo sed -i "s|VITE_SERVER_URL=\"http://localhost:5173\"|VITE_SERVER_URL=\"http://${{ secrets.EC2_HOST }}:5000\"|g" /var/www/html/assets/conf.js
+            # Menggunakan skrip yang lebih aman untuk mencegah error jika file tidak ada
+            if [ -f "/var/www/html/assets/conf.js" ]; then
+              sudo sed -i "s|VITE_SERVER_URL=\"http://localhost:5173\"|VITE_SERVER_URL=\"http://${{ secrets.EC2_HOST }}:5000\"|g" /var/www/html/assets/conf.js
+            else
+              echo "Warning: /var/www/html/assets/conf.js not found. Skipping sed command."
+            fi
             
             # Menjalankan backend
             cd /home/${{ secrets.EC2_USER }}/app-staging/server
