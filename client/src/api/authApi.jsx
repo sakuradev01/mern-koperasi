@@ -43,7 +43,7 @@ api.interceptors.response.use(
 // Auth API functions
 export const signUp = async (data) => {
   try {
-    const response = await api.post("/api/auth/login/register", data);
+    const response = await api.post("/api/auth/register", data);
     return response.data;
   } catch (error) {
     console.error("Sign up error:", error);
@@ -74,7 +74,7 @@ export const logIn = async (data) => {
 
 export const getCurrentUser = async () => {
   try {
-    const response = await api.get("/api/auth/profile");
+    const response = await api.get("/api/auth/me");
     return response.data;
   } catch (error) {
     console.error("Get current user error:", error);
