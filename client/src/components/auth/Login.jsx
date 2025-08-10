@@ -1,7 +1,5 @@
-// File: client/src/components/auth/Login.jsx
-
-import { useState, useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useState } from "react";
+import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { logIn } from "../../api/authApi";
 import { login } from "../../store/authSlice";
@@ -19,24 +17,12 @@ const Login = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  // Ambil status autentikasi dari Redux
-  const authStatus = useSelector((state) => state.auth.status);
-
-  // Gunakan useEffect untuk memantau status login
-  useEffect(() => {
-    if (authStatus) {
-      // Jika status login berubah menjadi true, arahkan ke dashboard
-      navigate("/dashboard");
-    }
-  }, [authStatus, navigate]);
-
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
-    // Clear error when user starts typing
     if (error) setError("");
   };
 
@@ -51,7 +37,8 @@ const Login = () => {
       if (response.success) {
         // Update Redux store
         dispatch(login(response.data.user));
-        // Navigasi akan ditangani oleh useEffect di atas
+        // Arahkan ke dashboard setelah Redux diperbarui
+        navigate("/dashboard");
       } else {
         setError(response.message || "Login gagal");
       }
