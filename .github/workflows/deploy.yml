@@ -9,32 +9,32 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Deploy to EC2
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Stop any running PM2 process (OK)
+            # Stop any running PM2 process
             pm2 stop mern-koperasi-backend || true
             pm2 delete mern-koperasi-backend || true
 
             # Clean up old app directory and create a fresh one
             sudo rm -rf /home/${{ secrets.EC2_USER }}/app
             mkdir -p /home/${{ secrets.EC2_USER }}/app
-            
+
             # Clone the repository into the app directory
             git clone --branch main --single-branch https://github.com/${{ github.repository }}.git /home/${{ secrets.EC2_USER }}/app
-            
+
             # === BACKEND SETUP ===
             cd /home/${{ secrets.EC2_USER }}/app/server
-            
+
             # Create the .env file for the backend from GitHub Secrets
             echo "MONGO_DB_URL=${{ secrets.MONGO_DB_URL }}" > .env
             echo "PORT=${{ secrets.PORT }}" >> .env
@@ -43,35 +43,44 @@ jobs:
             echo "CORS_ORIGIN3=${{ secrets.CORS_ORIGIN3 }}" >> .env
             echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
             echo "STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}" >> .env
+            echo "NODE_ENV=production" >> .env
 
             # Install backend dependencies
-            npm install --production
-            
+            npm ci --production
+
             # === FRONTEND SETUP ===
             cd /home/${{ secrets.EC2_USER }}/app/client
             # Install and build the frontend with the correct API URL
-            # VITE_SERVER_URL will be the base URL of the server.
-            # The /api path is handled within the client-side code.
             export VITE_SERVER_URL="http://${{ secrets.EC2_HOST }}"
 
-            npm install
+            # Create .env file for frontend
+            echo "VITE_SERVER_URL=${{ secrets.EC2_HOST }}" > .env
+            echo "VITE_API_URL=http://${{ secrets.EC2_HOST }}/api" >> .env
+
+            npm ci
             npm run build
-            
+
             # === NGINX SETUP ===
             # Create the Nginx configuration file from a GitHub Secret
-            # IMPORTANT: You must create a secret named NGINX_CONF with the provided content.
             echo "${{ secrets.NGINX_CONF }}" | sudo tee /etc/nginx/sites-available/default
 
             # Replace placeholders in the Nginx config with actual values from secrets
             sudo sed -i "s/__EC2_HOST__/${{ secrets.EC2_HOST }}/g" /etc/nginx/sites-available/default
             sudo sed -i "s/__PORT__/${{ secrets.PORT }}/g" /etc/nginx/sites-available/default
-            
+
+            # Test Nginx configuration
+            sudo nginx -t
+
             # Clean the default Nginx web root
             sudo rm -rf /var/www/html/*
-            
+
             # Copy the built frontend files to the Nginx web root
             sudo cp -r /home/${{ secrets.EC2_USER }}/app/client/dist/. /var/www/html/
-            
+
+            # Set proper permissions
+            sudo chown -R www-data:www-data /var/www/html/
+            sudo chmod -R 755 /var/www/html/
+
             # Restart Nginx to apply the new configuration
             sudo systemctl restart nginx
 
@@ -80,6 +89,10 @@ jobs:
             cd /home/${{ secrets.EC2_USER }}/app/server
             # PM2 will automatically use the .env file in the server's root directory
             pm2 start index.js --name "mern-koperasi-backend"
-            
+
             # Save the PM2 process list to run on server reboot
-            pm2 save --force
+            pm2 save
+
+            # Enable PM2 to start on boot
+            pm2 startup
+            pm2 save
