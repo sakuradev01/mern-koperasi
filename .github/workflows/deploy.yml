@@ -55,7 +55,7 @@ jobs:
 
             # Create .env file for frontend
             echo "VITE_SERVER_URL=http://${{ secrets.EC2_HOST }}" > .env
-            echo "VITE_API_URL=http://${{ secrets.EC2_HOST }}/api" >> .env
+            echo "VITE_API_URL=http://${{ secrets.EC2_HOST }}" >> .env
 
             npm ci
             npm run build
