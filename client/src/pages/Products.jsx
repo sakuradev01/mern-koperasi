@@ -22,7 +22,7 @@ const Products = () => {
 
   const fetchProducts = async () => {
     try {
-      const response = await api.get("/api/products");
+      const response = await api.get("/api/v1/products");
       if (response.data.success) {
         setProducts(response.data.data);
       }
@@ -48,7 +48,7 @@ const Products = () => {
         const productId = editingProduct._id;
         if (productId) {
           const response = await api.put(
-            `/api/products/${productId}`,
+            `/api/v1/products/${productId}`,
             productData
           );
           console.log("Update response:", response.data);
@@ -64,7 +64,7 @@ const Products = () => {
           return;
         }
       } else {
-        const response = await api.post("/api/products", productData);
+        const response = await api.post("/api/v1/products", productData);
         console.log("Create response:", response.data);
         if (response.data.success) {
           fetchProducts();
@@ -114,7 +114,7 @@ const Products = () => {
 
     if (window.confirm("Apakah Anda yakin ingin menghapus produk ini?")) {
       try {
-        const response = await api.delete(`/api/products/${id}`);
+        const response = await api.delete(`/api/v1/products/${id}`);
         console.log("Delete response:", response.data);
         if (response.data.success) {
           fetchProducts();
@@ -140,7 +140,7 @@ const Products = () => {
     }
 
     try {
-      const response = await api.put(`/api/products/${id}/toggle`);
+      const response = await api.put(`/api/v1/products/${id}/toggle`);
       console.log("Toggle status response:", response.data);
       if (response.data.success) {
         fetchProducts();
