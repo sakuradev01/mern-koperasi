@@ -49,10 +49,11 @@ jobs:
             
             # === FRONTEND SETUP ===
             cd /home/${{ secrets.EC2_USER }}/app/client
-            
             # Install and build the frontend with the correct API URL
-            # VITE_SERVER_URL will point to the /api path proxied by Nginx
-            export VITE_SERVER_URL="http://${{ secrets.EC2_HOST }}/api"
+            # VITE_SERVER_URL will be the base URL of the server.
+            # The /api path is handled within the client-side code.
+            export VITE_SERVER_URL="http://${{ secrets.EC2_HOST }}"
+
             npm install
             npm run build
             
@@ -60,6 +61,10 @@ jobs:
             # Create the Nginx configuration file from a GitHub Secret
             # IMPORTANT: You must create a secret named NGINX_CONF with the provided content.
             echo "${{ secrets.NGINX_CONF }}" | sudo tee /etc/nginx/sites-available/default
+
+            # Replace placeholders in the Nginx config with actual values from secrets
+            sudo sed -i "s/__EC2_HOST__/${{ secrets.EC2_HOST }}/g" /etc/nginx/sites-available/default
+            sudo sed -i "s/__PORT__/${{ secrets.PORT }}/g" /etc/nginx/sites-available/default
             
             # Clean the default Nginx web root
             sudo rm -rf /var/www/html/*
