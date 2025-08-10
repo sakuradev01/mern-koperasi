@@ -21,7 +21,7 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Stop any running PM2 process
+            # Stop any running PM2 process (OK)
             pm2 stop mern-koperasi-backend || true
             pm2 delete mern-koperasi-backend || true
 
