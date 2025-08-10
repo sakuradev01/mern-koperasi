@@ -21,44 +21,60 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Menghentikan layanan yang sedang berjalan jika ada
+            # Stop any running PM2 process
             pm2 stop mern-koperasi-backend || true
             pm2 delete mern-koperasi-backend || true
 
-            # Hapus folder staging jika sudah ada dan buat yang baru
-            sudo rm -rf /home/${{ secrets.EC2_USER }}/app-staging
-            mkdir -p /home/${{ secrets.EC2_USER }}/app-staging
+            # Clean up old app directory and create a fresh one
+            sudo rm -rf /home/${{ secrets.EC2_USER }}/app
+            mkdir -p /home/${{ secrets.EC2_USER }}/app
             
-            # Menggunakan git untuk kloning repositori ke folder staging
-            git clone --branch main --single-branch https://github.com/${{ github.repository }}.git /home/${{ secrets.EC2_USER }}/app-staging
+            # Clone the repository into the app directory
+            git clone --branch main --single-branch https://github.com/${{ github.repository }}.git /home/${{ secrets.EC2_USER }}/app
             
-            # Menjalankan instalasi dependensi backend
-            cd /home/${{ secrets.EC2_USER }}/app-staging/server
+            # === BACKEND SETUP ===
+            cd /home/${{ secrets.EC2_USER }}/app/server
+            
+            # Create the .env file for the backend from GitHub Secrets
+            echo "MONGO_DB_URL=${{ secrets.MONGO_DB_URL }}" > .env
+            echo "PORT=${{ secrets.PORT }}" >> .env
+            echo "CORS_ORIGIN1=http://${{ secrets.EC2_HOST }}" >> .env
+            echo "CORS_ORIGIN2=${{ secrets.CORS_ORIGIN2 }}" >> .env
+            echo "CORS_ORIGIN3=${{ secrets.CORS_ORIGIN3 }}" >> .env
+            echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
+            echo "STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}" >> .env
+
+            # Install backend dependencies
             npm install --production
             
-            # Menjalankan instalasi dan build frontend
-            cd /home/${{ secrets.EC2_USER }}/app-staging/client
+            # === FRONTEND SETUP ===
+            cd /home/${{ secrets.EC2_USER }}/app/client
+            
+            # Install and build the frontend with the correct API URL
+            # VITE_SERVER_URL will point to the /api path proxied by Nginx
+            export VITE_SERVER_URL="http://${{ secrets.EC2_HOST }}/api"
             npm install
             npm run build
             
-            # Hapus konten lama di Nginx
+            # === NGINX SETUP ===
+            # Create the Nginx configuration file from a GitHub Secret
+            # IMPORTANT: You must create a secret named NGINX_CONF with the provided content.
+            echo "${{ secrets.NGINX_CONF }}" | sudo tee /etc/nginx/sites-available/default
+            
+            # Clean the default Nginx web root
             sudo rm -rf /var/www/html/*
             
-            # Salin file frontend yang sudah dibuild ke direktori Nginx
-            sudo cp -r /home/${{ secrets.EC2_USER }}/app-staging/client/dist/. /var/www/html/
+            # Copy the built frontend files to the Nginx web root
+            sudo cp -r /home/${{ secrets.EC2_USER }}/app/client/dist/. /var/www/html/
             
-            # Mengganti URL server di konfigurasi frontend yang sudah di-deploy
-            # Ini akan mengganti VITE_SERVER_URL dari "http://localhost:5000/" atau "undefined" menjadi IP publik server
-            if [ -f "/var/www/html/assets/conf.js" ]; then
-              sudo sed -i "s|VITE_SERVER_URL=\"http://localhost:5000/\"|VITE_SERVER_URL=\"http://${{ secrets.EC2_HOST }}/\"|g" /var/www/html/assets/conf.js
-              sudo sed -i "s|VITE_SERVER_URL=undefined|VITE_SERVER_URL=\"http://${{ secrets.EC2_HOST }}/\"|g" /var/www/html/assets/conf.js
-            else
-              echo "Warning: /var/www/html/assets/conf.js not found. Skipping sed command."
-            fi
-            
-            # Jalankan backend dengan PM2
-            cd /home/${{ secrets.EC2_USER }}/app-staging/server
+            # Restart Nginx to apply the new configuration
+            sudo systemctl restart nginx
+
+            # === START SERVICES ===
+            # Start the backend with PM2
+            cd /home/${{ secrets.EC2_USER }}/app/server
+            # PM2 will automatically use the .env file in the server's root directory
             pm2 start index.js --name "mern-koperasi-backend"
             
-            # Simpan konfigurasi PM2 agar aplikasi otomatis berjalan saat server reboot
+            # Save the PM2 process list to run on server reboot
             pm2 save --force
