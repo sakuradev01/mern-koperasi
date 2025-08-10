@@ -7,8 +7,8 @@ const AuthLayout = () => {
   const { isAuthenticated } = useSelector((state) => state.auth);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate("/dashboard");
+    if (!isAuthenticated) {
+      navigate("/login");
     }
   }, [isAuthenticated, navigate]);
 
