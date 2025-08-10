@@ -34,7 +34,7 @@ jobs:
             
             # === BACKEND SETUP ===
             cd /home/${{ secrets.EC2_USER }}/app/server
-
+            
             # Create the .env file for the backend from GitHub Secrets
             echo "MONGO_DB_URL=${{ secrets.MONGO_DB_URL }}" > .env
             echo "PORT=${{ secrets.PORT }}" >> .env
@@ -49,11 +49,11 @@ jobs:
             
             # === FRONTEND SETUP ===
             cd /home/${{ secrets.EC2_USER }}/app/client
-
             # Install and build the frontend with the correct API URL
             # VITE_SERVER_URL will be the base URL of the server.
             # The /api path is handled within the client-side code.
             export VITE_SERVER_URL="http://${{ secrets.EC2_HOST }}"
+
             npm install
             npm run build
             
