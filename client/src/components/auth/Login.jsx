@@ -1,5 +1,7 @@
-import { useState } from "react";
-import { useDispatch } from "react-redux";
+// File: client/src/components/auth/Login.jsx
+
+import { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { logIn } from "../../api/authApi";
 import { login } from "../../store/authSlice";
@@ -16,6 +18,17 @@ const Login = () => {
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
+
+  // Ambil status autentikasi dari Redux
+  const authStatus = useSelector((state) => state.auth.status);
+
+  // Gunakan useEffect untuk memantau status login
+  useEffect(() => {
+    if (authStatus) {
+      // Jika status login berubah menjadi true, arahkan ke dashboard
+      navigate("/dashboard");
+    }
+  }, [authStatus, navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -38,9 +51,7 @@ const Login = () => {
       if (response.success) {
         // Update Redux store
         dispatch(login(response.data.user));
-
-        // Redirect to dashboard
-        navigate("/dashboard");
+        // Navigasi akan ditangani oleh useEffect di atas
       } else {
         setError(response.message || "Login gagal");
       }
@@ -87,14 +98,12 @@ const Login = () => {
             Masuk ke Sistem
           </h2>
 
-          {/* Error Message */}
           {error && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
               {error}
             </div>
           )}
 
-          {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label
@@ -143,7 +152,6 @@ const Login = () => {
             </Button>
           </form>
 
-          {/* Admin Info */}
           <div className="mt-6 p-4 bg-gray-50 rounded-md">
             <p className="text-sm text-gray-600 text-center">
               <strong>Admin Default:</strong>
