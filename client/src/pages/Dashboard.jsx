@@ -74,7 +74,7 @@ const Dashboard = () => {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <StatCard
-          title="Total Anggota"
+          title="Total Anggota Koperasi"
           value={stats.totalMembers}
           icon="👥"
           color="bg-blue-100 text-blue-600"
