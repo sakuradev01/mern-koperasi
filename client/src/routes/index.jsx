@@ -1,3 +1,5 @@
+// File: client/src/routes/index.jsx
+
 import {
   createBrowserRouter,
   Route,
@@ -16,15 +18,17 @@ import PrivateRoute from "../utils/PrivateRoute.jsx";
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route>
-      {/* Auth Layout - untuk halaman login tanpa sidebar/header */}
+      {/* Rute untuk halaman login */}
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<Login />} />
       </Route>
 
-      {/* Main Layout - untuk halaman dengan sidebar/header yang dilindungi */}
+      {/* Rute untuk halaman utama (landing page) */}
+      <Route path="/" element={<Home />} />
+
+      {/* Rute-rute yang dilindungi, hanya dapat diakses setelah login */}
       <Route element={<PrivateRoute />}>
-        <Route path="/" element={<MainLayout />}>
-          <Route index element={<Home />} />
+        <Route element={<MainLayout />}>
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="master/anggota" element={<Members />} />
           <Route path="master/produk" element={<Products />} />
