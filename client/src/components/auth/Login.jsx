@@ -23,6 +23,7 @@ const Login = () => {
       ...prev,
       [name]: value,
     }));
+    // Clear error when user starts typing
     if (error) setError("");
   };
 
@@ -37,7 +38,8 @@ const Login = () => {
       if (response.success) {
         // Update Redux store
         dispatch(login(response.data.user));
-        // Arahkan ke dashboard setelah Redux diperbarui
+
+        // Redirect to dashboard
         navigate("/dashboard");
       } else {
         setError(response.message || "Login gagal");
@@ -85,12 +87,14 @@ const Login = () => {
             Masuk ke Sistem
           </h2>
 
+          {/* Error Message */}
           {error && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
               {error}
             </div>
           )}
 
+          {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label
@@ -139,6 +143,7 @@ const Login = () => {
             </Button>
           </form>
 
+          {/* Admin Info */}
           <div className="mt-6 p-4 bg-gray-50 rounded-md">
             <p className="text-sm text-gray-600 text-center">
               <strong>Admin Default:</strong>
