@@ -100,18 +100,18 @@
           "response": []
         },
         {
-          "name": "2.2 Get Member by ID",
+          "name": "2.2 Get Member by UUID",
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{base_url}}/api/members/:id",
+              "raw": "{{base_url}}/api/members/:uuid",
               "host": ["{{base_url}}"],
-              "path": ["api", "members", ":id"]
+              "path": ["api", "members", ":uuid"]
             },
             "url": {
-              "raw": "{{base_url}}/api/members/6896b2a3490eaf37d328786e",
+              "raw": "{{base_url}}/api/members/JERMAN-123",
               "host": ["{{base_url}}"],
-              "path": ["api", "members", "6896b2a3490eaf37d328786e"]
+              "path": ["api", "members", "JERMAN-123"]
             }
           },
           "response": []
@@ -128,7 +128,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"phone\": \"081234567890\",\n  \"address\": \"Jl. Contoh No. 123\"\n}"
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"gender\": \"L\",\n  \"phone\": \"081234567890\",\n  \"city\": \"Jakarta\",\n  \"completeAddress\": \"Jl. Contoh No. 123\",\n  \"username\": \"johndoe\",\n  \"password\": \"password123\",\n  \"uuid\": \"MEMBER_CUSTOM_123\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/api/members",
@@ -150,17 +150,17 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"John Doe Updated\",\n  \"email\": \"john.updated@example.com\",\n  \"phone\": \"081234567890\",\n  \"address\": \"Jl. Contoh No. 123 Updated\"\n}"
+              "raw": "{\n  \"name\": \"John Updated\",\n  \"gender\": \"L\",\n  \"phone\": \"081234567890\",\n  \"city\": \"Jakarta\",\n  \"completeAddress\": \"Jl. Updated No. 123\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/api/members/:id",
+              "raw": "{{base_url}}/api/members/:uuid",
               "host": ["{{base_url}}"],
-              "path": ["api", "members", ":id"]
+              "path": ["api", "members", ":uuid"]
             },
             "url": {
-              "raw": "{{base_url}}/api/members/6896b2a3490eaf37d328786e",
+              "raw": "{{base_url}}/api/members/JERMAN-123",
               "host": ["{{base_url}}"],
-              "path": ["api", "members", "6896b2a3490eaf37d328786e"]
+              "path": ["api", "members", "JERMAN-123"]
             }
           },
           "response": []
@@ -170,14 +170,14 @@
           "request": {
             "method": "DELETE",
             "url": {
-              "raw": "{{base_url}}/api/members/:id",
+              "raw": "{{base_url}}/api/members/:uuid",
               "host": ["{{base_url}}"],
-              "path": ["api", "members", ":id"]
+              "path": ["api", "members", ":uuid"]
             },
             "url": {
-              "raw": "{{base_url}}/api/members/6896b2a3490eaf37d328786e",
+              "raw": "{{base_url}}/api/members/JERMAN-123",
               "host": ["{{base_url}}"],
-              "path": ["api", "members", "6896b2a3490eaf37d328786e"]
+              "path": ["api", "members", "JERMAN-123"]
             }
           },
           "response": []
