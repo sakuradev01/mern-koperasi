@@ -1,5 +1,3 @@
-// File: client/src/routes/index.jsx
-
 import {
   createBrowserRouter,
   Route,
@@ -13,27 +11,22 @@ import Dashboard from "../pages/Dashboard.jsx";
 import Members from "../pages/Members.jsx";
 import Products from "../pages/Products.jsx";
 import Savings from "../pages/Savings.jsx";
-import PrivateRoute from "../utils/PrivateRoute.jsx";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route>
-      {/* Rute untuk halaman login */}
-      <Route element={<AuthLayout />}>
-        <Route path="/login" element={<Login />} />
+      {/* Auth Layout - untuk halaman login tanpa sidebar/header */}
+      <Route path="/" element={<AuthLayout />}>
+        <Route path="login" element={<Login />} />
       </Route>
 
-      {/* Rute untuk halaman utama (landing page) */}
-      <Route path="/" element={<Home />} />
-
-      {/* Rute-rute yang dilindungi, hanya dapat diakses setelah login */}
-      <Route element={<PrivateRoute />}>
-        <Route element={<MainLayout />}>
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="master/anggota" element={<Members />} />
-          <Route path="master/produk" element={<Products />} />
-          <Route path="simpanan" element={<Savings />} />
-        </Route>
+      {/* Main Layout - untuk halaman dengan sidebar/header */}
+      <Route path="/" element={<MainLayout />}>
+        <Route index element={<Home />} />
+        <Route path="dashboard" element={<Dashboard />} />
+        <Route path="master/anggota" element={<Members />} />
+        <Route path="master/produk" element={<Products />} />
+        <Route path="simpanan" element={<Savings />} />
       </Route>
     </Route>
   )
