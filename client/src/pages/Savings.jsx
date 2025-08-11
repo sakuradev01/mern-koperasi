@@ -23,6 +23,12 @@ const Savings = () => {
     proofFile: null,
   });
 
+  const [lastPeriod, setLastPeriod] = useState(0);
+  const [originalSelection, setOriginalSelection] = useState({
+    memberId: "",
+    productId: "",
+  });
+
   // Fetch data
   const fetchSavings = async () => {
     try {
@@ -80,6 +86,25 @@ const Savings = () => {
     loadData();
   }, []);
 
+  // Auto-update installmentPeriod when member/product/type change
+  useEffect(() => {
+    if (formData.memberId && formData.productId) {
+      checkLastInstallmentPeriod(formData.memberId, formData.productId);
+    } else {
+      // Reset when either field empty
+      setLastPeriod(0);
+      setFormData((prev) => ({ ...prev, installmentPeriod: 1 }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    formData.memberId,
+    formData.productId,
+    formData.type,
+    editingId,
+    originalSelection.memberId,
+    originalSelection.productId,
+  ]);
+
   // Format currency
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("id-ID", {
@@ -87,6 +112,36 @@ const Savings = () => {
       currency: "IDR",
       minimumFractionDigits: 0,
     }).format(amount);
+  };
+
+  // Auto-calc next installment period based on last saved period
+  const checkLastInstallmentPeriod = async (memberId, productId) => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get(
+        `${API_URL}/api/savings/check-period/${memberId}/${productId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const data = response.data?.data || response.data || {};
+      const last = data.lastPeriod ?? 0;
+      const next = (last || 0) + 1;
+      setLastPeriod(last);
+      const selectionChanged =
+        originalSelection.memberId !== formData.memberId ||
+        originalSelection.productId !== formData.productId;
+      if (!editingId || selectionChanged) {
+        setFormData((prev) => ({ ...prev, installmentPeriod: next }));
+      }
+    } catch (error) {
+      console.error("Error checking last period:", error);
+      setLastPeriod(0);
+      const selectionChanged =
+        originalSelection.memberId !== formData.memberId ||
+        originalSelection.productId !== formData.productId;
+      if (!editingId || selectionChanged) {
+        setFormData((prev) => ({ ...prev, installmentPeriod: 1 }));
+      }
+    }
   };
 
   // Handle form submission
@@ -145,6 +200,8 @@ const Savings = () => {
       description: "",
       proofFile: null,
     });
+    setLastPeriod(0);
+    setOriginalSelection({ memberId: "", productId: "" });
   };
 
   // Handle file upload
@@ -186,6 +243,11 @@ const Savings = () => {
       description: saving.description || "",
       proofFile: null,
     });
+    setOriginalSelection({
+      memberId: saving.memberId?._id || saving.memberId || "",
+      productId: saving.productId?._id || saving.productId || "",
+    });
+    setLastPeriod(0);
     setShowModal(true);
   };
 
@@ -457,6 +519,12 @@ const Savings = () => {
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                       required
                     />
+                    {lastPeriod > 0 && (
+                      <p className="mt-1 text-sm text-gray-500">
+                        Periode terakhir: {lastPeriod}, otomatis diisi periode
+                        berikutnya
+                      </p>
+                    )}
                   </div>
 
                   <div>

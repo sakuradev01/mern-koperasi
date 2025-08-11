@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import PropTypes from "prop-types";
 import { memberApi } from "../../api/memberApi";
@@ -10,6 +10,7 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [lastPeriod, setLastPeriod] = useState(0);
+  const originalSelectionRef = useRef({ memberId: "", productId: "" });
 
   const {
     register,
@@ -42,21 +43,30 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
             ? new Date(savingsData.savingsDate).toISOString().split("T")[0]
             : "",
         });
+        originalSelectionRef.current = {
+          memberId: savingsData.memberId?._id || savingsData.memberId,
+          productId: savingsData.productId?._id || savingsData.productId,
+        };
       } else {
         reset({
           type: "Setoran",
           status: "Pending",
           savingsDate: new Date().toISOString().split("T")[0],
         });
+        originalSelectionRef.current = { memberId: "", productId: "" };
       }
     }
   }, [isOpen, savingsData, reset]);
 
   useEffect(() => {
-    if (memberId && productId && type === "Setoran") {
+    if (memberId && productId) {
       checkLastInstallmentPeriod();
+    } else {
+      // Reset when either field is empty
+      setLastPeriod(0);
+      setValue("installmentPeriod", 1);
     }
-  }, [memberId, productId, type]);
+  }, [memberId, productId]);
 
   const fetchMembers = async () => {
     try {
@@ -82,15 +92,28 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
         memberId,
         productId
       );
-      setLastPeriod(response.data.lastPeriod || 0);
+      const last = response.data.lastPeriod || 0;
+      setLastPeriod(last);
 
-      // Auto-set next period
-      const nextPeriod = (response.data.lastPeriod || 0) + 1;
-      setValue("installmentPeriod", nextPeriod);
+      // Auto-set next period, but don't override when editing with same original selection
+      const nextPeriod = last + 1;
+      const isOriginal =
+        originalSelectionRef.current.memberId === memberId &&
+        originalSelectionRef.current.productId === productId;
+
+      if (!savingsData || !isOriginal) {
+        setValue("installmentPeriod", nextPeriod);
+      }
     } catch (error) {
       console.error("Error checking last period:", error);
       setLastPeriod(0);
-      setValue("installmentPeriod", 1);
+      const isOriginal =
+        originalSelectionRef.current.memberId === memberId &&
+        originalSelectionRef.current.productId === productId;
+
+      if (!savingsData || !isOriginal) {
+        setValue("installmentPeriod", 1);
+      }
     }
   };
 
@@ -267,33 +290,31 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
             </div>
           </div>
 
-          {type === "Setoran" && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Periode Cicilan (bulan)
-              </label>
-              <input
-                type="number"
-                {...register("installmentPeriod", {
-                  required: "Periode cicilan wajib diisi",
-                  min: { value: 1, message: "Minimal 1 bulan" },
-                })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Masukkan periode cicilan"
-              />
-              {lastPeriod > 0 && (
-                <p className="text-sm text-gray-600 mt-1">
-                  Periode terakhir: {lastPeriod}, otomatis diisi periode
-                  berikutnya
-                </p>
-              )}
-              {errors.installmentPeriod && (
-                <p className="text-red-500 text-sm mt-1">
-                  {errors.installmentPeriod.message}
-                </p>
-              )}
-            </div>
-          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Periode Cicilan (bulan)
+            </label>
+            <input
+              type="number"
+              {...register("installmentPeriod", {
+                required: "Periode cicilan wajib diisi",
+                min: { value: 1, message: "Minimal 1 bulan" },
+              })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Masukkan periode cicilan"
+            />
+            {lastPeriod > 0 && (
+              <p className="text-sm text-gray-600 mt-1">
+                Periode terakhir: {lastPeriod}, otomatis diisi periode
+                berikutnya
+              </p>
+            )}
+            {errors.installmentPeriod && (
+              <p className="text-red-500 text-sm mt-1">
+                {errors.installmentPeriod.message}
+              </p>
+            )}
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
