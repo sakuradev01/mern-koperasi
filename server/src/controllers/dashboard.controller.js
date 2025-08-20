@@ -1,4 +1,4 @@
-import { User, Product, Savings } from "../db/index.js";
+import { User, Product, Savings, LoanProduct } from "../db/index.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const getDashboardStats = asyncHandler(async (req, res) => {
@@ -25,6 +25,11 @@ const getDashboardStats = asyncHandler(async (req, res) => {
 
     // Get total products count
     const totalProducts = await Product.countDocuments();
+
+    // Get active loan products count (produk pinjaman yang aktif)
+    const activeSavingsCount = await LoanProduct.countDocuments({
+      isActive: true,
+    });
 
     // Get recent transactions (last 10 savings)
     const recentTransactions = await Savings.find()
@@ -115,6 +120,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
         totalMembers,
         totalSavings,
         totalProducts,
+        activeSavingsCount,
         recentTransactions: formattedTransactions,
         monthlyStats,
       },

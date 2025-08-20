@@ -10,6 +10,7 @@ const Dashboard = () => {
     totalMembers: 0,
     totalDeposits: 0,
     totalProducts: 0,
+    activeSavingsCount: 0,
     recentTransactions: [],
     monthlyStats: [],
   });
@@ -25,6 +26,7 @@ const Dashboard = () => {
             totalMembers: response.data.data.totalMembers,
             totalDeposits: response.data.data.totalSavings,
             totalProducts: response.data.data.totalProducts,
+            activeSavingsCount: response.data.data.activeSavingsCount || 0,
             recentTransactions: response.data.data.recentTransactions,
             monthlyStats: response.data.data.monthlyStats || [],
           });
@@ -72,7 +74,7 @@ const Dashboard = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatCard
           title="Total Anggota"
           value={stats.totalMembers}
@@ -90,6 +92,12 @@ const Dashboard = () => {
           value={stats.totalProducts}
           icon="📋"
           color="bg-purple-100 text-purple-600"
+        />
+        <StatCard
+          title="Produk Pinjaman Aktif"
+          value={stats.activeSavingsCount}
+          icon="📊"
+          color="bg-yellow-100 text-yellow-600"
         />
       </div>
 
