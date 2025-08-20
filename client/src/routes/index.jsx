@@ -11,6 +11,7 @@ import Dashboard from "../pages/Dashboard.jsx";
 import Members from "../pages/Members.jsx";
 import Products from "../pages/Products.jsx";
 import Savings from "../pages/Savings.jsx";
+import LoanProducts from "../pages/LoanProducts.jsx";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -26,6 +27,7 @@ const router = createBrowserRouter(
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="master/anggota" element={<Members />} />
         <Route path="master/produk" element={<Products />} />
+        <Route path="master/loan-products" element={<LoanProducts />} />
         <Route path="simpanan" element={<Savings />} />
       </Route>
     </Route>

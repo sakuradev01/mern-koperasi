@@ -25,8 +25,12 @@ const Sidebar = () => {
           path: "/master/anggota",
         },
         {
-          title: "Produk",
+          title: "Produk Simpanan",
           path: "/master/produk",
+        },
+        {
+          title: "Produk Pinjaman",
+          path: "/master/loan-products",
         },
       ],
     },
