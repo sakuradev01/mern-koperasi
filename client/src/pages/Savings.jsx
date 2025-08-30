@@ -56,7 +56,6 @@ const Savings = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = response.data?.data || response.data || [];
-      console.log("🔍 Fetched members data:", data);
       setMembers(Array.isArray(data) ? data : []);
     } catch {
       toast.error("Gagal memuat data anggota");
@@ -92,12 +91,9 @@ const Savings = () => {
     if (formData.memberId && !editingId) {
       // Only auto-fill when creating new savings (not editing)
       const selectedMember = members.find(member => member._id === formData.memberId);
-      console.log("🔍 Selected member for auto-fill:", selectedMember);
       if (selectedMember && selectedMember.productId) {
-        console.log("✅ Auto-filling productId:", selectedMember.productId);
         setFormData(prev => ({ ...prev, productId: selectedMember.productId }));
       } else if (selectedMember && !selectedMember.productId) {
-        console.log("⚠️ Member has no product, clearing productId");
         setFormData(prev => ({ ...prev, productId: "" }));
       }
     }

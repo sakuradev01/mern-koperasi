@@ -5,23 +5,20 @@ import { PersistGate } from "redux-persist/integration/react";
 import { persistor } from "./store/store.js";
 import { Provider, useDispatch } from "react-redux";
 import store from "./store/store.js";
-// import { jwtDecode } from "jwt-decode";
-// import { login } from "./store/authSlice";
+import { login } from "./store/authSlice";
+import { getStoredUser, isAuthenticated } from "./api/authApi";
 
 function App() {
   const dispatch = useDispatch();
 
   useEffect(() => {
-    // const token =
-    //   localStorage.getItem("token") || sessionStorage.getItem("token");
-    // if (token) {
-    //   try {
-    //     const decodedToken = jwtDecode(token);
-    //     dispatch(login({ email: decodedToken.email, name: decodedToken.name }));
-    //   } catch (error) {
-    //     console.error("Invalid token or token expired", error);
-    //   }
-    // }
+    // Check if user is already authenticated
+    if (isAuthenticated()) {
+      const user = getStoredUser();
+      if (user) {
+        dispatch(login(user));
+      }
+    }
   }, [dispatch]);
 
   return (

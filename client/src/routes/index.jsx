@@ -12,6 +12,7 @@ import Members from "../pages/Members.jsx";
 import Products from "../pages/Products.jsx";
 import Savings from "../pages/Savings.jsx";
 import LoanProducts from "../pages/LoanProducts.jsx";
+import PrivateRoute from "../utils/PrivateRoute.jsx";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -21,9 +22,9 @@ const router = createBrowserRouter(
         <Route path="login" element={<Login />} />
       </Route>
 
-      {/* Main Layout - untuk halaman dengan sidebar/header */}
-      <Route path="/" element={<MainLayout />}>
-        <Route index element={<Home />} />
+      {/* Main Layout - untuk halaman dengan sidebar/header (Protected) */}
+      <Route path="/" element={<PrivateRoute><MainLayout /></PrivateRoute>}>
+        <Route index element={<Dashboard />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="master/anggota" element={<Members />} />
         <Route path="master/produk" element={<Products />} />

@@ -6,7 +6,11 @@ const PrivateRoute = ({ children }) => {
   PrivateRoute.propTypes = {
     children: PropTypes.node.isRequired,
   };
-  const { isAuthenticated } = useSelector((state) => state.auth);
+  
+  // Check both Redux state and localStorage token
+  const { status } = useSelector((state) => state.auth);
+  const token = localStorage.getItem("token");
+  const isAuthenticated = status || !!token;
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
