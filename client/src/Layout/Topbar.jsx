@@ -1,5 +1,6 @@
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import PropTypes from "prop-types";
 import { logout } from "../store/authSlice.js";
 
 const Topbar = ({ setSidebarOpen }) => {
@@ -83,6 +84,10 @@ const Topbar = ({ setSidebarOpen }) => {
       </div>
     </header>
   );
+};
+
+Topbar.propTypes = {
+  setSidebarOpen: PropTypes.func,
 };
 
 export default Topbar;

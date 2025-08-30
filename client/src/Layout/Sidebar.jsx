@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
+import PropTypes from "prop-types";
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   const { user } = useSelector((state) => state.auth);
@@ -149,6 +150,11 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
       </div>
     </>
   );
+};
+
+Sidebar.propTypes = {
+  sidebarOpen: PropTypes.bool,
+  setSidebarOpen: PropTypes.func,
 };
 
 export default Sidebar;
