@@ -1,154 +1,107 @@
 <?php
-// Konfigurasi API
-$api_base_url = "http://localhost:5000/api"; // Sesuaikan dengan URL server Anda
+/**
+ * Secure JSON API untuk mendapatkan data member berdasarkan UUID
+ * Tanpa perlu login admin - menggunakan public API
+ * 
+ * Usage:
+ * GET: saving_json.php?uuid=JPSB37142
+ * POST: saving_json.php dengan body uuid=JPSB37142
+ */
 
-// Fungsi untuk mendapatkan data member berdasarkan UUID
-function getMemberByUuid($uuid) {
-    global $api_base_url;
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST');
+header('Access-Control-Allow-Headers: Content-Type');
+
+// Konfigurasi
+$API_BASE_URL = "http://localhost:5000/api/public";
+
+// Fungsi untuk call API
+function callAPI($endpoint) {
+    global $API_BASE_URL;
     
-    $curl = curl_init();
-    curl_setopt_array($curl, [
-        CURLOPT_URL => "$api_base_url/members/$uuid",
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER => [
-            "Authorization: Bearer " . getToken(),
-            "Content-Type: application/json"
-        ]
+    $url = $API_BASE_URL . $endpoint;
+    
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json'
     ]);
     
-    $response = curl_exec($curl);
-    $err = curl_error($curl);
-    curl_close($curl);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $error = curl_error($ch);
+    curl_close($ch);
     
-    if ($err) {
-        return ["error" => "Error: $err"];
+    if ($error) {
+        return [
+            'success' => false, 
+            'message' => 'CURL Error: ' . $error
+        ];
     }
     
-    return json_decode($response, true);
-}
-
-// Fungsi untuk mendapatkan savings berdasarkan member ID
-function getSavingsByMemberId($memberId) {
-    global $api_base_url;
-    
-    $curl = curl_init();
-    curl_setopt_array($curl, [
-        CURLOPT_URL => "$api_base_url/savings/member/$memberId",
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER => [
-            "Authorization: Bearer " . getToken(),
-            "Content-Type: application/json"
-        ]
-    ]);
-    
-    $response = curl_exec($curl);
-    $err = curl_error($curl);
-    curl_close($curl);
-    
-    if ($err) {
-        return ["error" => "Error: $err"];
-    }
-    
-    return json_decode($response, true);
-}
-
-// Fungsi untuk mendapatkan token
-function getToken() {
-    global $api_base_url;
-    
-    // Jika token sudah ada di session, gunakan token tersebut
-    session_start();
-    if (isset($_SESSION['token']) && isset($_SESSION['token_expiry']) && $_SESSION['token_expiry'] > time()) {
-        return $_SESSION['token'];
-    }
-    
-    // Jika tidak, dapatkan token baru
-    $curl = curl_init();
-    curl_setopt_array($curl, [
-        CURLOPT_URL => "$api_base_url/auth/login",
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => json_encode([
-            "username" => "admin", // Ganti dengan username yang valid
-            "password" => "admin123" // Ganti dengan password yang valid
-        ]),
-        CURLOPT_HTTPHEADER => [
-            "Content-Type: application/json"
-        ]
-    ]);
-    
-    $response = curl_exec($curl);
-    $err = curl_error($curl);
-    curl_close($curl);
-    
-    if ($err) {
-        header('Content-Type: application/json');
-        echo json_encode(["error" => "Error getting token: $err"]);
-        exit;
+    if ($httpCode !== 200) {
+        return [
+            'success' => false, 
+            'message' => 'HTTP Error: ' . $httpCode
+        ];
     }
     
     $data = json_decode($response, true);
-    if (isset($data['data']['token'])) {
-        $_SESSION['token'] = $data['data']['token'];
-        $_SESSION['token_expiry'] = time() + 3600; // Token berlaku 1 jam
-        return $data['data']['token'];
-    }
-    
-    header('Content-Type: application/json');
-    echo json_encode(["error" => "Failed to get token", "response" => $data]);
-    exit;
+    return $data ?: [
+        'success' => false, 
+        'message' => 'Invalid JSON response'
+    ];
 }
 
-// Set header untuk JSON response
-header('Content-Type: application/json');
+// Ambil UUID dari GET, POST, atau command line
+$uuid = null;
 
-// Ambil UUID dari GET atau POST request
-$uuid = $_GET['uuid'] ?? $_POST['uuid'] ?? 'JPSB37142';
-
-if (!$uuid) {
-    echo json_encode([
-        "success" => false,
-        "message" => "UUID tidak diberikan",
-        "data" => null
-    ]);
-    exit;
-}
-
-// Dapatkan member berdasarkan UUID
-$memberResponse = getMemberByUuid($uuid);
-
-if (isset($memberResponse['success']) && $memberResponse['success'] === true) {
-    $memberId = $memberResponse['data']['_id'];
-    
-    // Dapatkan savings berdasarkan member ID
-    $savingsResponse = getSavingsByMemberId($memberId);
-    
-    if (isset($savingsResponse['statusCode']) && $savingsResponse['statusCode'] === 200) {
-        echo json_encode([
-            "success" => true,
-            "message" => "Data savings berhasil ditemukan",
-            "data" => [
-                "member" => [
-                    "uuid" => $uuid,
-                    "id" => $memberId,
-                    "name" => $memberResponse['data']['name'] ?? "Unknown",
-                ],
-                "summary" => $savingsResponse['data']['summary'] ?? [],
-                "savings" => $savingsResponse['data']['savings'] ?? [],
-                "pagination" => $savingsResponse['data']['pagination'] ?? []
-            ]
-        ]);
-    } else {
-        echo json_encode([
-            "success" => false,
-            "message" => "Gagal mendapatkan data savings: " . ($savingsResponse['message'] ?? "Unknown error"),
-            "data" => null
-        ]);
+// Jika dijalankan dari command line
+if (php_sapi_name() === 'cli') {
+    // Ambil dari argument command line
+    if (isset($argv[1])) {
+        $uuid = trim($argv[1]);
     }
 } else {
-    echo json_encode([
-        "success" => false,
-        "message" => "Member dengan UUID $uuid tidak ditemukan",
-        "data" => null
-    ]);
+    // Jika dijalankan dari web server
+    $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    
+    if ($requestMethod === 'GET' && isset($_GET['uuid'])) {
+        $uuid = trim($_GET['uuid']);
+    } elseif ($requestMethod === 'POST') {
+        $input = file_get_contents('php://input');
+        $data = json_decode($input, true);
+        
+        if ($data && isset($data['uuid'])) {
+            $uuid = trim($data['uuid']);
+        } elseif (isset($_POST['uuid'])) {
+            $uuid = trim($_POST['uuid']);
+        }
+    }
 }
+
+// Validasi UUID
+if (empty($uuid)) {
+    $usage = [
+        'CLI' => 'php saving_json.php JPSB37142',
+        'GET' => 'saving_json.php?uuid=JPSB37142',
+        'POST' => 'saving_json.php with body {"uuid":"JPSB37142"}'
+    ];
+    
+    echo json_encode([
+        'success' => false,
+        'message' => 'UUID parameter is required',
+        'usage' => $usage
+    ], JSON_PRETTY_PRINT);
+    exit;
+}
+
+// Call API untuk mendapatkan data member
+$result = callAPI("/member/" . urlencode($uuid));
+
+// Return response
+echo json_encode($result, JSON_PRETTY_PRINT);
+?>

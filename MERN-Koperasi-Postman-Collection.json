@@ -1,6 +1,6 @@
 {
   "info": {
-    "name": "MERN Koperasi API",
+    "name": "MERN Koperasi API 233",
     "description": "Complete Postman collection for MERN Koperasi project",
     "version": "1.0.0",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
@@ -25,9 +25,102 @@
       "key": "token",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "test_uuid_puspita",
+      "value": "JPSB37142",
+      "type": "string"
+    },
+    {
+      "key": "test_uuid_alu",
+      "value": "JPTG34817",
+      "type": "string"
     }
   ],
   "item": [
+    {
+      "name": "0. Public API (No Auth Required)",
+      "item": [
+        {
+          "name": "0.1 Get All Savings (Public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/public/savings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public", "savings"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "0.2 Get All Members (Public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/public/members",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public", "members"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "0.3 Get All Products (Public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/public/products",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public", "products"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "0.4 Get Summary (Public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/public/summary",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public", "summary"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "0.5 Get Member by UUID - Puspita (Public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/public/member/{{test_uuid_puspita}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public", "member", "{{test_uuid_puspita}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "0.6 Get Member by UUID - ALU (Public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/public/member/{{test_uuid_alu}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public", "member", "{{test_uuid_alu}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
     {
       "name": "1. Authentication",
       "item": [
