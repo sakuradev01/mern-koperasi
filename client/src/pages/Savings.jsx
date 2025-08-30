@@ -56,6 +56,7 @@ const Savings = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = response.data?.data || response.data || [];
+      console.log("🔍 Fetched members data:", data);
       setMembers(Array.isArray(data) ? data : []);
     } catch {
       toast.error("Gagal memuat data anggota");
@@ -85,6 +86,22 @@ const Savings = () => {
     };
     loadData();
   }, []);
+
+  // Auto-fill product when member is selected
+  useEffect(() => {
+    if (formData.memberId && !editingId) {
+      // Only auto-fill when creating new savings (not editing)
+      const selectedMember = members.find(member => member._id === formData.memberId);
+      console.log("🔍 Selected member for auto-fill:", selectedMember);
+      if (selectedMember && selectedMember.productId) {
+        console.log("✅ Auto-filling productId:", selectedMember.productId);
+        setFormData(prev => ({ ...prev, productId: selectedMember.productId }));
+      } else if (selectedMember && !selectedMember.productId) {
+        console.log("⚠️ Member has no product, clearing productId");
+        setFormData(prev => ({ ...prev, productId: "" }));
+      }
+    }
+  }, [formData.memberId, members, editingId]);
 
   // Auto-update installmentPeriod when member/product/type change
   useEffect(() => {
@@ -470,7 +487,7 @@ const Savings = () => {
                     <option value="">Pilih Anggota</option>
                     {members.map((member) => (
                       <option key={member._id} value={member._id}>
-                        {member.name}
+                        {member.uuid} - {member.name} {member.product ? `(${member.product.title})` : '(Belum pilih produk)'}
                       </option>
                     ))}
                   </select>
@@ -494,11 +511,15 @@ const Savings = () => {
                     <option value="">Pilih Produk</option>
                     {products.map((product) => (
                       <option key={product._id} value={product._id}>
-                        {product.title} -{" "}
-                        {formatCurrency(product.depositAmount)}
+                        {product.title} - Min: {formatCurrency(product.depositAmount)}
                       </option>
                     ))}
                   </select>
+                  {formData.memberId && !editingId && (
+                    <p className="mt-1 text-sm text-blue-600">
+                      💡 Produk otomatis dipilih berdasarkan anggota yang dipilih
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

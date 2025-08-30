@@ -58,11 +58,22 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
 
   // Auto-fill product when member is selected
   useEffect(() => {
+    console.log("🔍 Auto-fill effect triggered");
+    console.log("🔍 memberId:", memberId);
+    console.log("🔍 savingsData:", savingsData);
+    console.log("🔍 members length:", members.length);
+    
     if (memberId && !savingsData) {
       // Only auto-fill when creating new savings (not editing)
       const selectedMember = members.find(member => member._id === memberId);
+      console.log("🔍 Found selected member:", selectedMember);
+      console.log("🔍 Member productId:", selectedMember?.productId);
+      
       if (selectedMember && selectedMember.productId) {
+        console.log("✅ Auto-filling productId:", selectedMember.productId);
         setValue("productId", selectedMember.productId);
+      } else {
+        console.log("❌ No auto-fill: member not found or no productId");
       }
     }
   }, [memberId, members, savingsData, setValue]);
@@ -81,6 +92,10 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
     try {
       const response = await api.get("/api/members");
       const membersData = response.data.data || response.data.members || [];
+      console.log("🔍 All members data:", membersData);
+      // Check specifically for Puspita
+      const puspita = membersData.find(m => m.uuid === "JPSB37142");
+      console.log("🔍 Puspita data:", puspita);
       setMembers(membersData);
     } catch (error) {
       console.error("Error fetching members:", error);
