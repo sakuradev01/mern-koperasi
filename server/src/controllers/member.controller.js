@@ -25,7 +25,7 @@ const getAllMembers = asyncHandler(async (req, res) => {
         const allSavings = await Savings.find({
           type: "Setoran",
           status: "Approved"
-        }).populate('memberId', 'uuid');
+        }).populate('memberId', 'uuid name');
         
         approvedSavings = allSavings.filter(saving => 
           saving.memberId && saving.memberId.uuid === member.uuid

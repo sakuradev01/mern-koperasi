@@ -1,9 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import PropTypes from "prop-types";
-import { memberApi } from "../../api/memberApi";
-import { productApi } from "../../api/productApi";
-import { savingsApi } from "../../api/savingsApi";
+import api from "../../api/index.jsx";
 
 const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
   const [members, setMembers] = useState([]);
@@ -58,6 +56,17 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
     }
   }, [isOpen, savingsData, reset]);
 
+  // Auto-fill product when member is selected
+  useEffect(() => {
+    if (memberId && !savingsData) {
+      // Only auto-fill when creating new savings (not editing)
+      const selectedMember = members.find(member => member._id === memberId);
+      if (selectedMember && selectedMember.productId) {
+        setValue("productId", selectedMember.productId);
+      }
+    }
+  }, [memberId, members, savingsData, setValue]);
+
   useEffect(() => {
     if (memberId && productId) {
       checkLastInstallmentPeriod();
@@ -70,8 +79,9 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
 
   const fetchMembers = async () => {
     try {
-      const response = await memberApi.getAllMembers();
-      setMembers(response.data.members || []);
+      const response = await api.get("/api/members");
+      const membersData = response.data.data || response.data.members || [];
+      setMembers(membersData);
     } catch (error) {
       console.error("Error fetching members:", error);
     }
@@ -79,8 +89,8 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
 
   const fetchProducts = async () => {
     try {
-      const response = await productApi.getAllProducts();
-      setProducts(response.data.products || []);
+      const response = await api.get("/api/products");
+      setProducts(response.data.data || response.data.products || []);
     } catch (error) {
       console.error("Error fetching products:", error);
     }
@@ -88,11 +98,8 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
 
   const checkLastInstallmentPeriod = async () => {
     try {
-      const response = await savingsApi.getLastInstallmentPeriod(
-        memberId,
-        productId
-      );
-      const last = response.data.lastPeriod || 0;
+      const response = await api.get(`/api/savings/check-period/${memberId}/${productId}`);
+      const last = response.data.data.lastPeriod || 0;
       setLastPeriod(last);
 
       // Auto-set next period, but don't override when editing with same original selection
@@ -132,9 +139,9 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
       });
 
       if (savingsData) {
-        await savingsApi.updateSavings(savingsData._id, formData);
+        await api.put(`/api/savings/${savingsData._id}`, formData);
       } else {
-        await savingsApi.createSavings(formData);
+        await api.post("/api/savings", formData);
       }
 
       onSuccess();
@@ -217,7 +224,7 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
               <option value="">Pilih Anggota</option>
               {members.map((member) => (
                 <option key={member._id} value={member._id}>
-                  {member.name} - {member.email}
+                  {member.uuid} - {member.name} {member.product ? `(${member.product.title})` : '(Belum pilih produk)'}
                 </option>
               ))}
             </select>
@@ -239,10 +246,15 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
               <option value="">Pilih Produk</option>
               {products.map((product) => (
                 <option key={product._id} value={product._id}>
-                  {product.title} - Min: {product.depositAmount}
+                  {product.title} - Min: Rp {product.depositAmount.toLocaleString('id-ID')}
                 </option>
               ))}
             </select>
+            {memberId && !savingsData && (
+              <p className="text-sm text-blue-600 mt-1">
+                💡 Produk otomatis dipilih berdasarkan anggota yang dipilih
+              </p>
+            )}
             {errors.productId && (
               <p className="text-red-500 text-sm mt-1">
                 {errors.productId.message}
@@ -304,9 +316,13 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
               placeholder="Masukkan periode cicilan"
             />
             {lastPeriod > 0 && (
-              <p className="text-sm text-gray-600 mt-1">
-                Periode terakhir: {lastPeriod}, otomatis diisi periode
-                berikutnya
+              <p className="text-sm text-blue-600 mt-1">
+                💡 Periode terakhir: {lastPeriod}, otomatis diisi periode berikutnya ({lastPeriod + 1})
+              </p>
+            )}
+            {lastPeriod === 0 && memberId && productId && (
+              <p className="text-sm text-green-600 mt-1">
+                ✨ Ini adalah periode pertama untuk anggota dan produk ini
               </p>
             )}
             {errors.installmentPeriod && (
