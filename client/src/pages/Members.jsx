@@ -3,6 +3,7 @@ import api from "../api/index.jsx";
 
 const Members = () => {
   const [members, setMembers] = useState([]);
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -16,11 +17,24 @@ const Members = () => {
     completeAddress: "",
     username: "",
     password: "",
+    productId: "",
   });
 
   useEffect(() => {
     fetchMembers();
+    fetchProducts();
   }, []);
+
+  const fetchProducts = async () => {
+    try {
+      const response = await api.get("/api/products");
+      if (response.data.success) {
+        setProducts(response.data.data.filter(product => product.isActive));
+      }
+    } catch (err) {
+      console.error("Products fetch error:", err);
+    }
+  };
 
   const fetchMembers = async () => {
     try {
@@ -67,6 +81,7 @@ const Members = () => {
             completeAddress: "",
             username: "",
             password: "",
+            productId: "",
           });
         }
       }
@@ -87,6 +102,7 @@ const Members = () => {
       completeAddress: member.completeAddress || "",
       username: member.user.username,
       password: "",
+      productId: member.productId || "",
     });
     setShowModal(true);
   };
@@ -115,6 +131,7 @@ const Members = () => {
       completeAddress: "",
       username: "",
       password: "",
+      productId: "",
     });
     setShowModal(true);
   };
@@ -170,6 +187,12 @@ const Members = () => {
                 City
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Produk Simpanan
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Total Setoran
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
               </th>
             </tr>
@@ -194,6 +217,12 @@ const Members = () => {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {member.city || "-"}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {member.product ? member.product.title : "-"}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {member.totalSavings ? `Rp ${member.totalSavings.toLocaleString('id-ID')}` : "Rp 0"}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <button
@@ -314,6 +343,25 @@ const Members = () => {
                   >
                     <option value="L">Laki-laki</option>
                     <option value="P">Perempuan</option>
+                  </select>
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Produk Simpanan (Opsional)
+                  </label>
+                  <select
+                    value={formData.productId}
+                    onChange={(e) =>
+                      setFormData({ ...formData, productId: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Pilih Produk Simpanan</option>
+                    {products.map((product) => (
+                      <option key={product._id} value={product._id}>
+                        {product.title} - Min. Rp {product.depositAmount.toLocaleString('id-ID')}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="mb-4">

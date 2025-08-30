@@ -35,11 +35,26 @@ const memberSchema = new Schema(
       ref: "User",
       required: true,
     },
+    productId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Product",
+      required: false,
+    },
   },
   {
     timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
+
+// Virtual untuk mengakses data produk
+memberSchema.virtual("product", {
+  ref: "Product",
+  localField: "productId",
+  foreignField: "_id",
+  justOne: true,
+});
 
 // Generate UUID sebelum disimpan
 memberSchema.pre("save", async function (next) {

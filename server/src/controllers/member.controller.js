@@ -1,16 +1,53 @@
 import { Member } from "../models/member.model.js";
 import { User } from "../models/user.model.js";
+import { Savings } from "../models/savings.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 // Get all members
 const getAllMembers = asyncHandler(async (req, res) => {
   const members = await Member.find()
     .populate("user", "username email isActive")
+    .populate("product", "title depositAmount")
     .sort({ createdAt: -1 });
+
+  // Calculate total savings for each member
+  const membersWithSavings = await Promise.all(
+    members.map(async (member) => {
+      // Method 1: Try to find by current member._id
+      let approvedSavings = await Savings.find({
+        memberId: member._id,
+        type: "Setoran",
+        status: "Approved",
+      });
+
+      // Method 2: If no savings found, try to find by populating member and matching UUID
+      if (approvedSavings.length === 0) {
+        const allSavings = await Savings.find({
+          type: "Setoran",
+          status: "Approved"
+        }).populate('memberId', 'uuid');
+        
+        approvedSavings = allSavings.filter(saving => 
+          saving.memberId && saving.memberId.uuid === member.uuid
+        );
+      }
+
+      // Calculate total using simple reduce
+      const totalSavings = approvedSavings.reduce(
+        (sum, saving) => sum + saving.amount,
+        0
+      );
+
+      return {
+        ...member.toObject(),
+        totalSavings: totalSavings,
+      };
+    })
+  );
 
   res.status(200).json({
     success: true,
-    data: members,
+    data: membersWithSavings,
   });
 });
 
@@ -18,10 +55,9 @@ const getAllMembers = asyncHandler(async (req, res) => {
 const getMemberByUuid = asyncHandler(async (req, res) => {
   const { uuid } = req.params;
 
-  const member = await Member.findOne({ uuid }).populate(
-    "user",
-    "username email isActive"
-  );
+  const member = await Member.findOne({ uuid })
+    .populate("user", "username email isActive")
+    .populate("product", "title depositAmount");
 
   if (!member) {
     return res.status(404).json({
@@ -47,6 +83,7 @@ const createMember = asyncHandler(async (req, res) => {
     completeAddress,
     username,
     password,
+    productId,
   } = req.body;
 
   // Check if username already exists
@@ -105,15 +142,15 @@ const createMember = asyncHandler(async (req, res) => {
     completeAddress,
     user: user._id,
     uuid: memberUUID,
+    productId: productId || null,
   });
 
   await member.save();
 
   // Populate user data
-  const populatedMember = await Member.findById(member._id).populate(
-    "user",
-    "username email isActive"
-  );
+  const populatedMember = await Member.findById(member._id)
+    .populate("user", "username email isActive")
+    .populate("product", "title depositAmount");
 
   res.status(201).json({
     success: true,
@@ -132,6 +169,7 @@ const updateMember = asyncHandler(async (req, res) => {
     phone,
     city,
     completeAddress,
+    productId,
   } = req.body;
 
   const member = await Member.findOne({ uuid });
@@ -161,14 +199,16 @@ const updateMember = asyncHandler(async (req, res) => {
   member.phone = phone || member.phone;
   member.city = city || member.city;
   member.completeAddress = completeAddress || member.completeAddress;
+  if (productId !== undefined) {
+    member.productId = productId || null;
+  }
 
   await member.save();
 
   // Populate user data
-  const populatedMember = await Member.findById(member._id).populate(
-    "user",
-    "username email isActive"
-  );
+  const populatedMember = await Member.findById(member._id)
+    .populate("user", "username email isActive")
+    .populate("product", "title depositAmount");
 
   res.status(200).json({
     success: true,

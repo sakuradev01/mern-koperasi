@@ -28,6 +28,7 @@ coverage/
 # Misc
 *.tgz
 *.log
+acli.exe
 *.lock
 
 # Optional npm cache directory
