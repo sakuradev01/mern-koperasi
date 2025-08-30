@@ -18,18 +18,18 @@ const router = createBrowserRouter(
   createRoutesFromElements(
     <Route>
       {/* Auth Layout - untuk halaman login tanpa sidebar/header */}
-      <Route path="/" element={<AuthLayout />}>
-        <Route path="login" element={<Login />} />
+      <Route element={<AuthLayout />}>
+        <Route path="/login" element={<Login />} />
       </Route>
 
       {/* Main Layout - untuk halaman dengan sidebar/header (Protected) */}
-      <Route path="/" element={<PrivateRoute><MainLayout /></PrivateRoute>}>
-        <Route index element={<Dashboard />} />
-        <Route path="dashboard" element={<Dashboard />} />
-        <Route path="master/anggota" element={<Members />} />
-        <Route path="master/produk" element={<Products />} />
-        <Route path="master/loan-products" element={<LoanProducts />} />
-        <Route path="simpanan" element={<Savings />} />
+      <Route element={<PrivateRoute><MainLayout /></PrivateRoute>}>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/master/anggota" element={<Members />} />
+        <Route path="/master/produk" element={<Products />} />
+        <Route path="/master/loan-products" element={<LoanProducts />} />
+        <Route path="/simpanan" element={<Savings />} />
       </Route>
     </Route>
   )

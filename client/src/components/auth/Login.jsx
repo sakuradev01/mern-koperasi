@@ -53,9 +53,9 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-pink-100 flex flex-col lg:flex-row">
+    <div className="h-screen bg-gradient-to-br from-pink-50 via-white to-pink-100 flex flex-col lg:flex-row overflow-hidden">
       {/* Site Info Section */}
-      <div className="lg:w-1/2 bg-gradient-to-br from-pink-500 via-pink-600 to-rose-600 flex justify-center items-center text-white p-6 sm:p-10 transition-all duration-300 ease-in-out">
+      <div className="lg:w-1/2 bg-gradient-to-br from-pink-500 via-pink-600 to-rose-600 flex justify-center items-center text-white p-6 sm:p-10 transition-all duration-300 ease-in-out min-h-0">
         <div className="text-center max-w-md">
           <div className="mb-6">
             {/* Sakura Logo */}
@@ -88,7 +88,7 @@ const Login = () => {
       </div>
 
       {/* Login Form Section */}
-      <div className="lg:w-1/2 flex justify-center items-center bg-white p-6 sm:p-10 transition-all duration-300 ease-in-out">
+      <div className="lg:w-1/2 flex justify-center items-center bg-white p-6 sm:p-10 transition-all duration-300 ease-in-out min-h-0 overflow-y-auto">
         <div className="max-w-md w-full">
           {/* Mobile Logo */}
           <div className="lg:hidden text-center mb-8">
