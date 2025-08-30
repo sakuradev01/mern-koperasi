@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 
-const Sidebar = () => {
+const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   const { user } = useSelector((state) => state.auth);
   const location = useLocation();
 
@@ -56,10 +56,11 @@ const Sidebar = () => {
         <Link
           key={item.path}
           to={item.path}
+          onClick={() => setSidebarOpen && setSidebarOpen(false)}
           className={`flex items-center px-4 py-2 mb-1 rounded-lg transition-colors ${
             isActive(item.path)
-              ? "bg-blue-100 text-blue-700"
-              : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              ? "bg-gradient-to-r from-pink-100 to-rose-100 text-pink-700 border border-pink-200"
+              : "text-gray-600 hover:text-gray-900 hover:bg-pink-50"
           }`}
         >
           <span className="mr-3">{item.icon}</span>
@@ -70,35 +71,83 @@ const Sidebar = () => {
   };
 
   return (
-    <div className="w-64 bg-white shadow-lg flex flex-col h-screen">
-      <div className="p-6">
-        <div className="flex items-center mb-8">
-          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
-            <span className="text-white text-xl font-bold">K</span>
+    <>
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:flex w-64 bg-white shadow-lg flex-col h-screen border-r border-pink-200">
+        <div className="p-6">
+          <div className="flex items-center mb-8">
+            <div className="w-10 h-10 bg-gradient-to-r from-pink-500 to-rose-500 rounded-lg flex items-center justify-center mr-3">
+              <span className="text-white text-xl font-bold">🌸</span>
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-gray-900">LPK SAMIT</h1>
+              <p className="text-xs text-gray-500">Sakura Mitra</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Koperasi</h1>
-            <p className="text-sm text-gray-500">Digital</p>
-          </div>
+
+          <nav className="space-y-1 flex-1">{renderMenuItems(menuItems)}</nav>
         </div>
 
-        <nav className="space-y-1 flex-1">{renderMenuItems(menuItems)}</nav>
-      </div>
-
-      <div className="mt-auto p-6 border-t border-gray-200">
-        <div className="flex items-center">
-          <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center mr-3">
-            <span className="text-gray-600 text-sm font-bold">
-              {user?.name?.charAt(0)}
-            </span>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-900">{user?.name}</p>
-            <p className="text-xs text-gray-500">{user?.role}</p>
+        <div className="mt-auto p-6 border-t border-pink-200">
+          <div className="flex items-center">
+            <div className="w-10 h-10 bg-gradient-to-r from-pink-100 to-rose-100 rounded-full flex items-center justify-center mr-3">
+              <span className="text-pink-600 text-sm font-bold">
+                {user?.name?.charAt(0)}
+              </span>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+              <p className="text-xs text-gray-500">{user?.role}</p>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Mobile Sidebar */}
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:hidden ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}>
+        <div className="flex flex-col h-full">
+          <div className="p-4 border-b border-pink-200 bg-gradient-to-r from-pink-50 to-rose-50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-8 h-8 bg-gradient-to-r from-pink-500 to-rose-500 rounded-lg flex items-center justify-center mr-2">
+                  <span className="text-white text-sm font-bold">🌸</span>
+                </div>
+                <div>
+                  <h1 className="text-base font-bold text-gray-900">LPK SAMIT</h1>
+                  <p className="text-xs text-gray-500">Sakura Mitra</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+              >
+                <span className="text-xl">✕</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 p-4">
+            <nav className="space-y-1">{renderMenuItems(menuItems)}</nav>
+          </div>
+
+          <div className="p-4 border-t border-pink-200">
+            <div className="flex items-center">
+              <div className="w-8 h-8 bg-gradient-to-r from-pink-100 to-rose-100 rounded-full flex items-center justify-center mr-2">
+                <span className="text-pink-600 text-xs font-bold">
+                  {user?.name?.charAt(0)}
+                </span>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                <p className="text-xs text-gray-500">{user?.role}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 };
 

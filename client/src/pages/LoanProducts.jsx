@@ -200,16 +200,16 @@ const LoanProducts = () => {
   }
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">
-          Manajemen Produk Pinjaman
+    <div className="p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 space-y-4 sm:space-y-0">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+          🌸 Manajemen Produk Pinjaman
         </h1>
         <button
           onClick={handleAddNew}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          className="bg-gradient-to-r from-pink-500 to-rose-500 text-white px-4 py-2 sm:px-6 sm:py-3 rounded-lg hover:from-pink-600 hover:to-rose-600 transition-all duration-200 font-medium text-sm sm:text-base shadow-lg hover:shadow-xl"
         >
-          Tambah Produk
+          ➕ Tambah Produk Pinjaman
         </button>
       </div>
 

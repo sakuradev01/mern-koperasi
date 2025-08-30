@@ -195,103 +195,116 @@ const Products = () => {
   }
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">
-          Manajemen Produk Simpanan
+    <div className="p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 space-y-4 sm:space-y-0">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+          🌸 Manajemen Produk Simpanan
         </h1>
         <button
           onClick={handleAddNew}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          className="bg-gradient-to-r from-pink-500 to-rose-500 text-white px-4 py-2 sm:px-6 sm:py-3 rounded-lg hover:from-pink-600 hover:to-rose-600 transition-all duration-200 font-medium text-sm sm:text-base shadow-lg hover:shadow-xl"
         >
-          Tambah Produk
+          ➕ Tambah Produk
         </button>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                ID
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Nama Produk
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Setoran Min
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Keuntungan
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Durasi (bulan)
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
+      <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-pink-100">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gradient-to-r from-pink-50 to-rose-50">
+              <tr>
+                <th className="hidden lg:table-cell px-3 sm:px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
+                  ID
+                </th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
+                  Nama Produk
+                </th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
+                  Setoran Min
+                </th>
+                <th className="hidden md:table-cell px-3 sm:px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
+                  Keuntungan
+                </th>
+                <th className="hidden lg:table-cell px-3 sm:px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
+                  Durasi (bulan)
+                </th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
+                  Aksi
+                </th>
+              </tr>
+            </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {products.map((product) => (
-              <tr key={product._id}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {product._id}
+              <tr key={product._id} className="hover:bg-pink-50 transition-colors">
+                <td className="hidden lg:table-cell px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 font-mono">
+                  {product._id.slice(-6)}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {product.title}
+                <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">
+                  <div className="flex items-center">
+                    <span className="mr-2">🌸</span>
+                    {product.title}
+                  </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {formatRupiah(product.depositAmount)}
+                <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500 font-semibold">
+                  <span className="text-green-600">
+                    {formatRupiah(product.depositAmount)}
+                  </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {product.returnProfit}%
+                <td className="hidden md:table-cell px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
+                  <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                    {product.returnProfit}%
+                  </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {product.termDuration}
+                <td className="hidden lg:table-cell px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
+                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                    {product.termDuration} bulan
+                  </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                   <span
-                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                    className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                       product.isActive
                         ? "bg-green-100 text-green-800"
                         : "bg-red-100 text-red-800"
                     }`}
                   >
-                    {product.isActive ? "Aktif" : "Nonaktif"}
+                    {product.isActive ? "✅ Aktif" : "❌ Nonaktif"}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <button
-                    onClick={() => handleEdit(product)}
-                    className="text-indigo-600 hover:text-indigo-900 mr-3"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleToggleStatus(product._id)}
-                    className={`mr-3 ${
-                      product.isActive
-                        ? "text-yellow-600 hover:text-yellow-900"
-                        : "text-green-600 hover:text-green-900"
-                    }`}
-                  >
-                    {product.isActive ? "Nonaktifkan" : "Aktifkan"}
-                  </button>
-                  <button
-                    onClick={() => handleDelete(product._id)}
-                    className="text-red-600 hover:text-red-900"
-                  >
-                    Delete
-                  </button>
+                <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium">
+                  <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-2">
+                    <button
+                      onClick={() => handleEdit(product)}
+                      className="text-pink-600 hover:text-pink-900 transition-colors"
+                    >
+                      ✏️ Edit
+                    </button>
+                    <button
+                      onClick={() => handleToggleStatus(product._id)}
+                      className={`transition-colors ${
+                        product.isActive
+                          ? "text-yellow-600 hover:text-yellow-900"
+                          : "text-green-600 hover:text-green-900"
+                      }`}
+                    >
+                      {product.isActive ? "⏸️ Nonaktif" : "▶️ Aktif"}
+                    </button>
+                    <button
+                      onClick={() => handleDelete(product._id)}
+                      className="text-red-600 hover:text-red-900 transition-colors"
+                    >
+                      🗑️ Hapus
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
 
       {/* Modal Form */}
