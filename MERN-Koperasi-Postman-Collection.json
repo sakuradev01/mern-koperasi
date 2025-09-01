@@ -27,6 +27,16 @@
       "type": "string"
     },
     {
+      "key": "member_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "encrypted_payload",
+      "value": "",
+      "type": "string"
+    },
+    {
       "key": "test_uuid_puspita",
       "value": "JPSB37142",
       "type": "string"
@@ -39,100 +49,17 @@
   ],
   "item": [
     {
-      "name": "0. Public API (No Auth Required)",
+      "name": "0. Public API (DISABLED - Security Risk)",
       "item": [
         {
-          "name": "0.1 Get All Savings (Public)",
+          "name": "⚠️ ALL PUBLIC ENDPOINTS DISABLED FOR SECURITY",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/public/savings",
+              "raw": "{{base_url}}/api/public/disabled",
               "host": ["{{base_url}}"],
-              "path": ["api", "public", "savings"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "0.2 Get All Members (Public)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/public/members",
-              "host": ["{{base_url}}"],
-              "path": ["api", "public", "members"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "0.3 Get All Products (Public)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/public/products",
-              "host": ["{{base_url}}"],
-              "path": ["api", "public", "products"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "0.4 Get Summary (Public)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/public/summary",
-              "host": ["{{base_url}}"],
-              "path": ["api", "public", "summary"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "0.5 Get Member by UUID - Puspita (Public)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/public/member/{{test_uuid_puspita}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "public", "member", "{{test_uuid_puspita}}"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "0.6 Get Member by UUID - ALU (Public)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/public/member/{{test_uuid_alu}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "public", "member", "{{test_uuid_alu}}"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "0.7 Get Student Dashboard Savings by UUID (Public)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/public/student-dashboard/:uuid",
-              "host": ["{{base_url}}"],
-              "path": ["api", "public", "student-dashboard", ":uuid"]
-            },
-            "url": {
-              "raw": "{{base_url}}/api/public/student-dashboard/{{test_uuid_puspita}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "public", "student-dashboard", "{{test_uuid_puspita}}"]
+              "path": ["api", "public", "disabled"]
             }
           },
           "response": []
@@ -140,10 +67,95 @@
       ]
     },
     {
-      "name": "1. Authentication",
+      "name": "1. Member Authentication (Magic Key + Encryption)",
       "item": [
         {
-          "name": "1.1 Login",
+          "name": "1.1 Generate Encrypted Payload (Testing)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"uuid\": \"{{test_uuid_puspita}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/member-auth/generate-payload",
+              "host": ["{{base_url}}"],
+              "path": ["api", "member-auth", "generate-payload"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "1.2 Get Member Token (Magic Key Auth)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-koperasi-auth",
+                "value": "{{encrypted_payload}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/member-auth/token",
+              "host": ["{{base_url}}"],
+              "path": ["api", "member-auth", "token"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Member API (Secure - Requires Member Token)",
+      "item": [
+        {
+          "name": "2.1 Member Dashboard Savings by UUID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{member_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/members/dashboard/:uuid",
+              "host": ["{{base_url}}"],
+              "path": ["api", "members", "dashboard", ":uuid"]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/members/dashboard/{{test_uuid_puspita}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "members", "dashboard", "{{test_uuid_puspita}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Authentication",
+      "item": [
+        {
+          "name": "3.1 Login",
           "request": {
             "method": "POST",
             "header": [
@@ -196,10 +208,10 @@
       ]
     },
     {
-      "name": "2. Members",
+      "name": "4. Members",
       "item": [
         {
-          "name": "2.1 Get All Members",
+          "name": "3.1 Get All Members",
           "request": {
             "method": "GET",
             "url": {

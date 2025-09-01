@@ -374,12 +374,15 @@ const getStudentDashboardSavings = asyncHandler(async (req, res) => {
   }
 });
 
-// Routes
-router.get("/savings", getPublicSavings);
-router.get("/members", getPublicMembers);
-router.get("/products", getPublicProducts);
-router.get("/summary", getPublicSummary);
-router.get("/member/:uuid", getMemberByUuid);
-router.get("/student-dashboard/:uuid", getStudentDashboardSavings);
+// Routes - SEMUA DIHAPUS KARENA SECURITY RISK
+// router.get("/savings", getPublicSavings);           // BERBAHAYA - expose semua data savings
+// router.get("/members", getPublicMembers);           // BERBAHAYA - expose semua data member  
+// router.get("/products", getPublicProducts);         // BERBAHAYA - expose semua data produk
+// router.get("/summary", getPublicSummary);           // BERBAHAYA - expose summary data
+// router.get("/member/:uuid", getMemberByUuid);       // BERBAHAYA - expose data member by UUID
+// router.get("/student-dashboard/:uuid", getStudentDashboardSavings); // BERBAHAYA - moved to member routes
+
+// Hanya route yang benar-benar aman untuk public (jika diperlukan)
+// router.get("/health", (req, res) => res.json({ status: "OK" }));
 
 export default router;
