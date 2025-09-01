@@ -55,6 +55,7 @@ router.route("/summary").get(getSavingsSummary);
 router
   .route("/check-period/:memberId/:productId")
   .get(getLastInstallmentPeriod);
-router.route("/student-dashboard/:memberUuid").get(getStudentDashboardSavings);
+// Route ini telah dipindahkan ke member.routes.js untuk keamanan
+// router.route("/student-dashboard/:memberUuid").get(getStudentDashboardSavings);
 
 export default router;
