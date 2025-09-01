@@ -352,21 +352,10 @@ const getLastInstallmentPeriod = asyncHandler(async (req, res) => {
 
 // Get student dashboard savings by member UUID
 const getStudentDashboardSavings = asyncHandler(async (req, res) => {
-  const { memberUuid } = req.params;
+  // Dapatkan member dari middleware requireMemberOwnership
+  const member = req.member;
 
-  if (!memberUuid) {
-    throw new ApiError(400, "Member UUID wajib diisi");
-  }
-
-  // Find member by UUID
-  const member = await Member.findOne({ uuid: memberUuid }).populate(
-    "productId"
-  );
-
-  if (!member) {
-    throw new ApiError(404, "Kamu belum menjadi bagian dari anggota koperasi");
-  }
-
+  // Pastikan member memiliki produk simpanan
   if (!member.productId) {
     throw new ApiError(
       404,
@@ -374,7 +363,8 @@ const getStudentDashboardSavings = asyncHandler(async (req, res) => {
     );
   }
 
-  // Get product details (tenor/term duration)
+  // Populate product details (tenor/term duration)
+  await member.populate("productId");
   const product = member.productId;
 
   // Get deposit history for this member
