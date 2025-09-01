@@ -71,6 +71,21 @@
       "item": [
         {
           "name": "1.1 Generate Encrypted Payload (Testing)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('encrypted_payload', response.data.encryptedPayload);",
+                  "    console.log('Encrypted payload saved:', response.data.encryptedPayload);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
@@ -94,6 +109,21 @@
         },
         {
           "name": "1.2 Get Member Token (Magic Key Auth)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('member_token', response.data.token);",
+                  "    console.log('Member token saved:', response.data.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [

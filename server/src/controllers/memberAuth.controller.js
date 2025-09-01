@@ -48,6 +48,8 @@ const getMemberToken = asyncHandler(async (req, res) => {
       role: member.user.role || "member",
     };
 
+
+
     const token = jwt.sign(
       tokenPayload,
       process.env.JWT_SECRET || "your-secret-key",
@@ -105,4 +107,61 @@ const generateTestPayload = asyncHandler(async (req, res) => {
   );
 });
 
-export { getMemberToken, generateTestPayload };
+// Debug endpoint untuk testing member authentication
+const debugMemberAuth = asyncHandler(async (req, res) => {
+  const { uuid } = req.params;
+  
+  try {
+    // Cari member berdasarkan UUID
+    const member = await Member.findOne({ uuid }).populate("user");
+    
+    if (!member) {
+      return res.status(404).json({
+        success: false,
+        message: "Member tidak ditemukan",
+        uuid: uuid
+      });
+    }
+    
+    // Generate encrypted payload
+    const encryptedPayload = encryptionUtils.generateEncryptedPayload(uuid);
+    
+    // Generate token langsung
+    const tokenPayload = {
+      userId: member.user._id,
+      memberUuid: member.uuid,
+      role: member.user.role || "member",
+    };
+    
+    const token = jwt.sign(
+      tokenPayload,
+      process.env.JWT_SECRET || "your-secret-key",
+      { expiresIn: "24h" }
+    );
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        member: {
+          uuid: member.uuid,
+          name: member.name,
+          role: member.user.role
+        },
+        encryptedPayload: encryptedPayload,
+        token: token,
+        testUrl: `http://localhost:8000/api/members/dashboard/${uuid}`
+      },
+      message: "Debug data berhasil dibuat"
+    });
+    
+  } catch (error) {
+    console.error("Debug member auth error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Gagal debug member auth",
+      error: error.message
+    });
+  }
+});
+
+export { getMemberToken, generateTestPayload, debugMemberAuth };

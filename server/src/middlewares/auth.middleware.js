@@ -113,7 +113,15 @@ export const requireMember = (req, res, next) => {
 // Middleware untuk member yang hanya bisa akses data mereka sendiri
 export const requireMemberOwnership = async (req, res, next) => {
   try {
-    if (!req.user || req.user.role !== "member") {
+    // Cek apakah user sudah terautentikasi dan memiliki role member
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Token tidak ditemukan, akses ditolak",
+      });
+    }
+
+    if (req.user.role !== "member") {
       return res.status(403).json({
         success: false,
         message: "Akses ditolak, hanya member yang diizinkan",
@@ -145,7 +153,7 @@ export const requireMemberOwnership = async (req, res, next) => {
     const { Member } = await import("../models/member.model.js");
     
     // Cari member berdasarkan UUID dari token
-    const member = await Member.findOne({ uuid: tokenMemberUuid });
+    const member = await Member.findOne({ uuid: tokenMemberUuid }).populate('productId');
     
     if (!member) {
       return res.status(404).json({
