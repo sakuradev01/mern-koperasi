@@ -294,11 +294,92 @@ const getMemberByUuid = asyncHandler(async (req, res) => {
   }
 });
 
+// GET /api/public/student-dashboard/:uuid - Student Dashboard Savings by UUID (Public)
+const getStudentDashboardSavings = asyncHandler(async (req, res) => {
+  try {
+    const { uuid } = req.params;
+
+    if (!uuid) {
+      return res.status(400).json({
+        success: false,
+        message: "Member UUID wajib diisi"
+      });
+    }
+
+    // Find member by UUID
+    const member = await Member.findOne({ uuid }).populate('productId');
+    
+    if (!member) {
+      return res.status(404).json({
+        success: false,
+        message: "Kamu belum menjadi bagian dari anggota koperasi"
+      });
+    }
+
+    if (!member.productId) {
+      return res.status(404).json({
+        success: false,
+        message: "Member belum memiliki produk simpanan yang dipilih"
+      });
+    }
+
+    // Get product details (tenor/term duration)
+    const product = member.productId;
+
+    // Get deposit history for this member (only approved deposits)
+    const depositHistory = await Savings.find({ 
+      memberId: member._id,
+      type: "Setoran",
+      status: "Approved"
+    }).select('installmentPeriod amount proofFile');
+
+    // Map deposit history by installment period
+    const realizationAmountMap = {};
+    const realizationProofFileMap = {};
+    
+    depositHistory.forEach(deposit => {
+      realizationAmountMap[deposit.installmentPeriod] = deposit.amount;
+      realizationProofFileMap[deposit.installmentPeriod] = deposit.proofFile || 0;
+    });
+
+    // Generate projection data for all periods
+    const delivered = [];
+    const currentDate = new Date();
+    
+    for (let i = 1; i <= product.termDuration; i++) {
+      // Calculate date projection (adding i months to current date)
+      const projectionDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + i, 1);
+      const dateProjection = projectionDate.toLocaleDateString('en-US', { 
+        month: 'long', 
+        year: 'numeric' 
+      });
+
+      delivered.push({
+        installment_period: i,
+        projection: product.depositAmount.toString(),
+        dateProjection: dateProjection,
+        realization: realizationAmountMap[i] ? realizationAmountMap[i].toString() : 0,
+        payment_proof: realizationProofFileMap[i] || 0
+      });
+    }
+
+    res.status(200).json(delivered);
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Gagal mengambil data dashboard student",
+      error: error.message
+    });
+  }
+});
+
 // Routes
 router.get("/savings", getPublicSavings);
 router.get("/members", getPublicMembers);
 router.get("/products", getPublicProducts);
 router.get("/summary", getPublicSummary);
 router.get("/member/:uuid", getMemberByUuid);
+router.get("/student-dashboard/:uuid", getStudentDashboardSavings);
 
 export default router;

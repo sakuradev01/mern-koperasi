@@ -118,6 +118,24 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "0.7 Get Student Dashboard Savings by UUID (Public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/public/student-dashboard/:uuid",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public", "student-dashboard", ":uuid"]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/public/student-dashboard/{{test_uuid_puspita}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public", "student-dashboard", "{{test_uuid_puspita}}"]
+            }
+          },
+          "response": []
         }
       ]
     },
