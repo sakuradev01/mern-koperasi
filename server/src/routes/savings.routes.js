@@ -8,6 +8,7 @@ import {
   getSavingsByMember,
   getSavingsSummary,
   getLastInstallmentPeriod,
+  getStudentDashboardSavings,
 } from "../controllers/savings.controller.js";
 import { verifyToken } from "../middlewares/auth.middleware.js";
 import multer from "multer";
@@ -54,5 +55,6 @@ router.route("/summary").get(getSavingsSummary);
 router
   .route("/check-period/:memberId/:productId")
   .get(getLastInstallmentPeriod);
+router.route("/student-dashboard/:memberUuid").get(getStudentDashboardSavings);
 
 export default router;

@@ -350,6 +350,79 @@ const getLastInstallmentPeriod = asyncHandler(async (req, res) => {
   );
 });
 
+// Get student dashboard savings by member UUID
+const getStudentDashboardSavings = asyncHandler(async (req, res) => {
+  const { memberUuid } = req.params;
+
+  if (!memberUuid) {
+    throw new ApiError(400, "Member UUID wajib diisi");
+  }
+
+  // Find member by UUID
+  const member = await Member.findOne({ uuid: memberUuid }).populate(
+    "productId"
+  );
+
+  if (!member) {
+    throw new ApiError(404, "Kamu belum menjadi bagian dari anggota koperasi");
+  }
+
+  if (!member.productId) {
+    throw new ApiError(
+      404,
+      "Member belum memiliki produk simpanan yang dipilih"
+    );
+  }
+
+  // Get product details (tenor/term duration)
+  const product = member.productId;
+
+  // Get deposit history for this member
+  const depositHistory = await Savings.find({
+    memberId: member._id,
+    type: "Setoran",
+    status: "Approved",
+  }).select("installmentPeriod amount proofFile");
+
+  // Map deposit history by installment period
+  const realizationAmountMap = {};
+  const realizationProofFileMap = {};
+
+  depositHistory.forEach((deposit) => {
+    realizationAmountMap[deposit.installmentPeriod] = deposit.amount;
+    realizationProofFileMap[deposit.installmentPeriod] = deposit.proofFile || 0;
+  });
+
+  // Generate projection data for all periods
+  const delivered = [];
+  const currentDate = new Date();
+
+  for (let i = 1; i <= product.termDuration; i++) {
+    // Calculate date projection (adding i months to current date)
+    const projectionDate = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth() + i,
+      1
+    );
+    const dateProjection = projectionDate.toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
+
+    delivered.push({
+      installment_period: i,
+      projection: product.depositAmount.toString(),
+      dateProjection: dateProjection,
+      realization: realizationAmountMap[i]
+        ? realizationAmountMap[i].toString()
+        : 0,
+      payment_proof: realizationProofFileMap[i] || 0,
+    });
+  }
+
+  res.status(200).json(delivered);
+});
+
 export {
   getAllSavings,
   getSavingsById,
@@ -359,4 +432,5 @@ export {
   getSavingsByMember,
   getSavingsSummary,
   getLastInstallmentPeriod,
+  getStudentDashboardSavings,
 };
