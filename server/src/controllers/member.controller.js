@@ -118,7 +118,7 @@ const createMember = asyncHandler(async (req, res) => {
     username,
     password: password || "default123", // Provide default password if not provided
     name,
-    role: "staff",
+    role: "member", // Set default role to member, can be overridden if needed
     uuid: generateUUID(),
   });
 

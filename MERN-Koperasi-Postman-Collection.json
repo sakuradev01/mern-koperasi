@@ -137,11 +137,6 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/api/members/dashboard/:uuid",
-              "host": ["{{base_url}}"],
-              "path": ["api", "members", "dashboard", ":uuid"]
-            },
-            "url": {
               "raw": "{{base_url}}/api/members/dashboard/{{test_uuid_puspita}}",
               "host": ["{{base_url}}"],
               "path": ["api", "members", "dashboard", "{{test_uuid_puspita}}"]
@@ -227,11 +222,6 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{base_url}}/api/members/:uuid",
-              "host": ["{{base_url}}"],
-              "path": ["api", "members", ":uuid"]
-            },
-            "url": {
               "raw": "{{base_url}}/api/members/JERMAN-123",
               "host": ["{{base_url}}"],
               "path": ["api", "members", "JERMAN-123"]
@@ -276,11 +266,6 @@
               "raw": "{\n  \"name\": \"John Updated\",\n  \"gender\": \"L\",\n  \"phone\": \"081234567890\",\n  \"city\": \"Jakarta\",\n  \"completeAddress\": \"Jl. Updated No. 123\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/api/members/:uuid",
-              "host": ["{{base_url}}"],
-              "path": ["api", "members", ":uuid"]
-            },
-            "url": {
               "raw": "{{base_url}}/api/members/JERMAN-123",
               "host": ["{{base_url}}"],
               "path": ["api", "members", "JERMAN-123"]
@@ -292,11 +277,6 @@
           "name": "2.5 Delete Member",
           "request": {
             "method": "DELETE",
-            "url": {
-              "raw": "{{base_url}}/api/members/:uuid",
-              "host": ["{{base_url}}"],
-              "path": ["api", "members", ":uuid"]
-            },
             "url": {
               "raw": "{{base_url}}/api/members/JERMAN-123",
               "host": ["{{base_url}}"],
@@ -326,11 +306,6 @@
           "name": "3.2 Get Product by ID",
           "request": {
             "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/api/products/:id",
-              "host": ["{{base_url}}"],
-              "path": ["api", "products", ":id"]
-            },
             "url": {
               "raw": "{{base_url}}/api/products/6895b413c2f18af6fe73ea31",
               "host": ["{{base_url}}"],
@@ -376,11 +351,6 @@
               "raw": "{\n  \"title\": \"Simpanan Harian Updated\",\n  \"description\": \"Simpanan harian dengan bunga tinggi updated\",\n  \"depositAmount\": 150000,\n  \"returnProfit\": 15,\n  \"termDuration\": 12\n}"
             },
             "url": {
-              "raw": "{{base_url}}/api/products/:id",
-              "host": ["{{base_url}}"],
-              "path": ["api", "products", ":id"]
-            },
-            "url": {
               "raw": "{{base_url}}/api/products/6895b413c2f18af6fe73ea31",
               "host": ["{{base_url}}"],
               "path": ["api", "products", "6895b413c2f18af6fe73ea31"]
@@ -392,11 +362,6 @@
           "name": "3.5 Delete Product",
           "request": {
             "method": "DELETE",
-            "url": {
-              "raw": "{{base_url}}/api/products/:id",
-              "host": ["{{base_url}}"],
-              "path": ["api", "products", ":id"]
-            },
             "url": {
               "raw": "{{base_url}}/api/products/6895b413c2f18af6fe73ea31",
               "host": ["{{base_url}}"],
@@ -426,11 +391,6 @@
           "name": "4.2 Get Savings by ID",
           "request": {
             "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/api/savings/:id",
-              "host": ["{{base_url}}"],
-              "path": ["api", "savings", ":id"]
-            },
             "url": {
               "raw": "{{base_url}}/api/savings/6896cb8b71cb5a5f0e4cc20d",
               "host": ["{{base_url}}"],
@@ -533,11 +493,6 @@
               ]
             },
             "url": {
-              "raw": "{{base_url}}/api/savings/:id",
-              "host": ["{{base_url}}"],
-              "path": ["api", "savings", ":id"]
-            },
-            "url": {
               "raw": "{{base_url}}/api/savings/6896cb8b71cb5a5f0e4cc20d",
               "host": ["{{base_url}}"],
               "path": ["api", "savings", "6896cb8b71cb5a5f0e4cc20d"]
@@ -550,11 +505,6 @@
           "request": {
             "method": "DELETE",
             "url": {
-              "raw": "{{base_url}}/api/savings/:id",
-              "host": ["{{base_url}}"],
-              "path": ["api", "savings", ":id"]
-            },
-            "url": {
               "raw": "{{base_url}}/api/savings/6896cb8b71cb5a5f0e4cc20d",
               "host": ["{{base_url}}"],
               "path": ["api", "savings", "6896cb8b71cb5a5f0e4cc20d"]
@@ -566,11 +516,6 @@
           "name": "4.6 Get Savings by Member",
           "request": {
             "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/api/savings/member/:memberId",
-              "host": ["{{base_url}}"],
-              "path": ["api", "savings", "member", ":memberId"]
-            },
             "url": {
               "raw": "{{base_url}}/api/savings/member/6896b2a3490eaf37d328786e",
               "host": ["{{base_url}}"],
@@ -596,17 +541,6 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{base_url}}/api/savings/check-period/:memberId/:productId",
-              "host": ["{{base_url}}"],
-              "path": [
-                "api",
-                "savings",
-                "check-period",
-                ":memberId",
-                ":productId"
-              ]
-            },
-            "url": {
               "raw": "{{base_url}}/api/savings/check-period/6896b2a3490eaf37d328786e/6895b413c2f18af6fe73ea31",
               "host": ["{{base_url}}"],
               "path": [
@@ -624,16 +558,6 @@
           "name": "4.9 Get Student Dashboard Savings by UUID",
           "request": {
             "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/api/savings/student-dashboard/:memberUuid",
-              "host": ["{{base_url}}"],
-              "path": [
-                "api",
-                "savings",
-                "student-dashboard",
-                ":memberUuid"
-              ]
-            },
             "url": {
               "raw": "{{base_url}}/api/savings/student-dashboard/{{test_uuid_puspita}}",
               "host": ["{{base_url}}"],
@@ -706,11 +630,6 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"role\": \"admin\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/api/admin/users/:id/role",
-              "host": ["{{base_url}}"],
-              "path": ["api", "admin", "users", ":id", "role"]
             },
             "url": {
               "raw": "{{base_url}}/api/admin/users/6895689f658cbcb0a0987d64/role",

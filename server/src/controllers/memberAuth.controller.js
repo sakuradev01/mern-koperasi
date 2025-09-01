@@ -41,7 +41,7 @@ const getMemberToken = asyncHandler(async (req, res) => {
       throw new ApiError(401, "Akun member tidak aktif");
     }
 
-    // Generate JWT token untuk member - FORCE role ke 'member' untuk member auth
+    // Generate JWT token untuk member - Menggunakan role dari user data
     const tokenPayload = {
       userId: member.user._id,
       memberUuid: member.uuid,
@@ -63,7 +63,7 @@ const getMemberToken = asyncHandler(async (req, res) => {
           member: {
             uuid: member.uuid,
             name: member.name,
-            role: "member", // FORCE ke member role untuk consistency
+            role: member.user.role || "member", // Menggunakan role dari user data
           },
           expiresIn: "24h",
         },
