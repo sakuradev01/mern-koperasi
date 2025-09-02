@@ -28,6 +28,7 @@ const MemberDetail = () => {
     try {
       const response = await api.get(`/api/members/${uuid}`);
       if (response.data.success) {
+        console.log("Full member response:", response.data.data); // Debug
         setMemberData(response.data.data);
       } else {
         setError("Member tidak ditemukan");
@@ -50,18 +51,44 @@ const MemberDetail = () => {
           const savingsArray = response.data.data.savings || [];
           console.log("Raw savings data:", savingsArray); // Debug
           
-          const convertedData = savingsArray.map((saving, index) => ({
-            installment_period: saving.installmentPeriod || (index + 1),
-            projection: saving.productId?.depositAmount?.toString() || "0",
-            dateProjection: new Date(saving.savingsDate).toLocaleDateString('en-US', { 
+          // Get product info untuk term duration
+          const productInfo = memberData.product;
+          const termDuration = productInfo?.termDuration || 12; // Default 12 bulan
+          const depositAmount = productInfo?.depositAmount || 0;
+          
+          console.log("Product info:", productInfo); // Debug
+          console.log("Term duration:", termDuration); // Debug
+          
+          // Create map dari existing savings berdasarkan installment period
+          const savingsMap = {};
+          savingsArray.forEach(saving => {
+            savingsMap[saving.installmentPeriod] = saving;
+          });
+          
+          // Generate semua periode dari 1 sampai termDuration
+          const convertedData = [];
+          for (let period = 1; period <= termDuration; period++) {
+            const existingSaving = savingsMap[period];
+            
+            // Calculate date projection (current date + period months)
+            const currentDate = new Date();
+            const projectionDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + period, 1);
+            const dateProjection = projectionDate.toLocaleDateString('en-US', { 
               month: 'long', 
               year: 'numeric' 
-            }),
-            realization: saving.amount?.toString() || "0",
-            payment_proof: saving.proofFile || "0"
-          }));
+            });
+            
+            convertedData.push({
+              installment_period: period,
+              projection: depositAmount.toString(),
+              dateProjection: dateProjection,
+              realization: existingSaving ? existingSaving.amount.toString() : "0",
+              payment_proof: existingSaving ? (existingSaving.proofFile || "0") : "0",
+              status: existingSaving ? existingSaving.status : "Belum Bayar"
+            });
+          }
           
-          console.log("Converted data:", convertedData); // Debug
+          console.log("Converted data with all periods:", convertedData); // Debug
           setSavingsData(convertedData);
         } else {
           setSavingsData([]);
@@ -94,16 +121,33 @@ const MemberDetail = () => {
     });
   };
 
-  const getStatusBadge = (realization, projection) => {
-    const realAmount = parseInt(realization) || 0;
-    const projAmount = parseInt(projection) || 0;
+  const getStatusBadge = (period) => {
+    const realAmount = parseInt(period.realization) || 0;
+    const projAmount = parseInt(period.projection) || 0;
     
+    // Jika ada status dari database, gunakan itu
+    if (period.status && period.status !== "Belum Bayar") {
+      const statusColors = {
+        "Approved": "bg-green-100 text-green-800",
+        "Pending": "bg-yellow-100 text-yellow-800", 
+        "Rejected": "bg-red-100 text-red-800"
+      };
+      const colorClass = statusColors[period.status] || "bg-gray-100 text-gray-800";
+      return <span className={`px-2 py-1 rounded-full text-xs font-medium ${colorClass}`}>
+        {period.status}
+      </span>;
+    }
+    
+    // Jika belum ada transaksi
+    if (realAmount === 0) {
+      return <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium">⏳ Belum Bayar</span>;
+    }
+    
+    // Berdasarkan jumlah pembayaran
     if (realAmount >= projAmount) {
       return <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">✅ Lunas</span>;
-    } else if (realAmount > 0) {
-      return <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">⏳ Sebagian</span>;
     } else {
-      return <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">❌ Belum Bayar</span>;
+      return <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">⏳ Sebagian</span>;
     }
   };
 
@@ -367,7 +411,7 @@ const MemberDetail = () => {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(period.realization, period.projection)}
+                      {getStatusBadge(period)}
                     </td>
                   </tr>
                 ))

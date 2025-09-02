@@ -7,7 +7,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 const getAllMembers = asyncHandler(async (req, res) => {
   const members = await Member.find()
     .populate("user", "username email isActive")
-    .populate("product", "title depositAmount")
+    .populate("product", "title depositAmount returnProfit termDuration description")
     .sort({ createdAt: -1 });
 
   // Calculate total savings for each member
@@ -57,7 +57,7 @@ const getMemberByUuid = asyncHandler(async (req, res) => {
 
   const member = await Member.findOne({ uuid })
     .populate("user", "username email isActive")
-    .populate("product", "title depositAmount");
+    .populate("product", "title depositAmount returnProfit termDuration description");
 
   if (!member) {
     return res.status(404).json({
