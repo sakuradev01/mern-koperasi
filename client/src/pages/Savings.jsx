@@ -108,6 +108,17 @@ const Savings = () => {
     }
   }, [formData.memberId, members, editingId]);
 
+  // Auto-fill amount when product is selected
+  useEffect(() => {
+    if (formData.productId && !editingId) {
+      // Only auto-fill when creating new savings (not editing)
+      const selectedProduct = products.find(product => product._id === formData.productId);
+      if (selectedProduct && selectedProduct.depositAmount) {
+        setFormData(prev => ({ ...prev, amount: selectedProduct.depositAmount }));
+      }
+    }
+  }, [formData.productId, products, editingId]);
+
   // Auto-update installmentPeriod when member/product/type change
   useEffect(() => {
     if (formData.memberId && formData.productId) {
@@ -914,6 +925,11 @@ const Savings = () => {
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                       required
                     />
+                    {formData.productId && !editingId && (
+                      <p className="mt-1 text-sm text-green-600">
+                        💰 Jumlah otomatis diisi sesuai harga paket produk
+                      </p>
+                    )}
                   </div>
                 </div>
 
