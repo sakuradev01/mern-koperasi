@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../api/index.jsx";
 
 const Members = () => {
+  const navigate = useNavigate();
   const [members, setMembers] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -214,7 +216,12 @@ const Members = () => {
                   {member.uuid}
                 </td>
                 <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">
-                  {member.name}
+                  <button
+                    onClick={() => navigate(`/master/anggota/${member.uuid}`)}
+                    className="text-pink-600 hover:text-pink-800 hover:underline font-medium transition-colors"
+                  >
+                    {member.name}
+                  </button>
                 </td>
                 <td className="hidden sm:table-cell px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
                   {member.user.username}
