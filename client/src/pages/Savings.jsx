@@ -29,6 +29,15 @@ const Savings = () => {
     productId: "",
   });
 
+  // Filter dan pagination states
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [showProofModal, setShowProofModal] = useState(false);
+  const [selectedProof, setSelectedProof] = useState(null);
+
   // Fetch data
   const fetchSavings = async () => {
     try {
@@ -304,6 +313,70 @@ const Savings = () => {
     return badges[status] || "bg-gray-100 text-gray-800";
   };
 
+  // Filter dan search functions
+  const filteredSavings = savings.filter((saving) => {
+    const memberName = getMemberName(saving.memberId).toLowerCase();
+    const matchesSearch = memberName.includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === "" || saving.status === statusFilter;
+    const matchesDate = dateFilter === "" || 
+      format(new Date(saving.savingsDate), "yyyy-MM-dd") === dateFilter;
+    
+    return matchesSearch && matchesStatus && matchesDate;
+  });
+
+  // Pagination
+  const totalPages = Math.ceil(filteredSavings.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentSavings = filteredSavings.slice(startIndex, endIndex);
+
+  // Reset page when filters change
+  const handleFilterChange = (filterType, value) => {
+    setCurrentPage(1);
+    switch(filterType) {
+      case 'search':
+        setSearchTerm(value);
+        break;
+      case 'status':
+        setStatusFilter(value);
+        break;
+      case 'date':
+        setDateFilter(value);
+        break;
+      default:
+        break;
+    }
+  };
+
+  // Handle show proof
+  const handleShowProof = (proofFile, saving) => {
+    if (proofFile && proofFile !== "0") {
+      const fileUrl = `http://localhost:5000/${proofFile}`;
+      
+      setSelectedProof({
+        file: proofFile,
+        saving: saving,
+        url: fileUrl
+      });
+      setShowProofModal(true);
+    }
+  };
+
+  // File type detection
+  const getFileExtension = (filename) => {
+    if (!filename || typeof filename !== 'string') return '';
+    return filename.split('.').pop().toLowerCase();
+  };
+
+  const isImageFile = (filename) => {
+    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
+    return imageExtensions.includes(getFileExtension(filename));
+  };
+
+  const isPdfFile = (filename) => {
+    return getFileExtension(filename) === 'pdf';
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -367,6 +440,76 @@ const Savings = () => {
         </div>
       </div>
 
+      {/* Filter dan Search */}
+      <div className="bg-white rounded-lg shadow border border-pink-100 p-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Search by Name */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              🔍 Cari Nama Anggota
+            </label>
+            <input
+              type="text"
+              placeholder="Masukkan nama anggota..."
+              value={searchTerm}
+              onChange={(e) => handleFilterChange('search', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+            />
+          </div>
+
+          {/* Filter by Status */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              📊 Filter Status
+            </label>
+            <select
+              value={statusFilter}
+              onChange={(e) => handleFilterChange('status', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+            >
+              <option value="">Semua Status</option>
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+          </div>
+
+          {/* Filter by Date */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              📅 Filter Tanggal
+            </label>
+            <input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => handleFilterChange('date', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+            />
+          </div>
+
+          {/* Reset Filters */}
+          <div className="flex items-end">
+            <button
+              onClick={() => {
+                setSearchTerm("");
+                setStatusFilter("");
+                setDateFilter("");
+                setCurrentPage(1);
+              }}
+              className="w-full bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 transition-colors"
+            >
+              🔄 Reset Filter
+            </button>
+          </div>
+        </div>
+
+        {/* Results Info */}
+        <div className="mt-4 text-sm text-gray-600">
+          Menampilkan {currentSavings.length} dari {filteredSavings.length} data
+          {filteredSavings.length !== savings.length && ` (difilter dari ${savings.length} total)`}
+        </div>
+      </div>
+
       {/* Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden border border-pink-100">
         <div className="overflow-x-auto">
@@ -394,71 +537,279 @@ const Savings = () => {
                 <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
                   Status
                 </th>
+                <th className="hidden lg:table-cell px-3 sm:px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
+                  Bukti Pembayaran
+                </th>
                 <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
                   Aksi
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {savings.map((saving) => (
-                <tr key={saving._id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {format(new Date(saving.savingsDate), "dd MMM yyyy", {
-                      locale: id,
-                    })}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {getMemberName(saving.memberId)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {getProductName(saving.productId)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {saving.installmentPeriod || 1} bulan
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatCurrency(saving.amount)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <span
-                      className={`px-2 py-1 text-xs rounded-full ${
-                        saving.type === "Setoran"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {saving.type}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 py-1 text-xs rounded-full ${getStatusBadge(
-                        saving.status
-                      )}`}
-                    >
-                      {saving.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button
-                      onClick={() => handleDelete(saving._id)}
-                      className="text-red-600 hover:text-red-900 mr-2"
-                    >
-                      Hapus
-                    </button>
-                    <button
-                      onClick={() => handleEdit(saving)}
-                      className="text-blue-600 hover:text-blue-900"
-                    >
-                      Edit
-                    </button>
+              {currentSavings.length > 0 ? (
+                currentSavings.map((saving) => (
+                  <tr key={saving._id} className="hover:bg-pink-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {format(new Date(saving.savingsDate), "dd MMM yyyy", {
+                        locale: id,
+                      })}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {getMemberName(saving.memberId)}
+                    </td>
+                    <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {getProductName(saving.productId)}
+                    </td>
+                    <td className="hidden lg:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {saving.installmentPeriod || 1} bulan
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
+                      {formatCurrency(saving.amount)}
+                    </td>
+                    <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <span
+                        className={`px-2 py-1 text-xs rounded-full ${
+                          saving.type === "Setoran"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {saving.type}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`px-2 py-1 text-xs rounded-full ${getStatusBadge(
+                          saving.status
+                        )}`}
+                      >
+                        {saving.status}
+                      </span>
+                    </td>
+                    <td className="hidden lg:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {saving.proofFile && saving.proofFile !== "0" ? (
+                        <button
+                          onClick={() => handleShowProof(saving.proofFile, saving)}
+                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 hover:bg-green-200 transition-colors cursor-pointer"
+                        >
+                          👁️ Lihat Bukti
+                        </button>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                          📄 Belum Ada
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-2">
+                        <button
+                          onClick={() => handleEdit(saving)}
+                          className="text-blue-600 hover:text-blue-900 transition-colors"
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(saving._id)}
+                          className="text-red-600 hover:text-red-900 transition-colors"
+                        >
+                          🗑️ Hapus
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="9" className="px-6 py-12 text-center">
+                    <div className="text-gray-400">
+                      <span className="text-4xl mb-4 block">📊</span>
+                      <p className="text-lg font-medium">Tidak Ada Data</p>
+                      <p className="text-sm">
+                        {searchTerm || statusFilter || dateFilter 
+                          ? "Tidak ada data yang sesuai dengan filter" 
+                          : "Belum ada data simpanan"}
+                      </p>
+                    </div>
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="bg-white rounded-lg shadow border border-pink-100 p-4 mt-6">
+          <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
+            <div className="text-sm text-gray-600">
+              Halaman {currentPage} dari {totalPages} 
+              ({filteredSavings.length} total data)
+            </div>
+            
+            <div className="flex space-x-2">
+              {/* Previous Button */}
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className={`px-3 py-2 rounded-md text-sm font-medium ${
+                  currentPage === 1
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-pink-500 text-white hover:bg-pink-600'
+                } transition-colors`}
+              >
+                ← Prev
+              </button>
+
+              {/* Page Numbers */}
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`px-3 py-2 rounded-md text-sm font-medium ${
+                      currentPage === pageNum
+                        ? 'bg-pink-500 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    } transition-colors`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+
+              {/* Next Button */}
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className={`px-3 py-2 rounded-md text-sm font-medium ${
+                  currentPage === totalPages
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-pink-500 text-white hover:bg-pink-600'
+                } transition-colors`}
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Popup untuk Bukti Pembayaran */}
+      {showProofModal && selectedProof && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl max-h-[90vh] w-full overflow-hidden">
+            {/* Header Modal */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-pink-50 to-rose-50">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  📄 Bukti Pembayaran
+                </h3>
+                <p className="text-sm text-gray-600">
+                  {getMemberName(selectedProof.saving.memberId)} - 
+                  {formatCurrency(selectedProof.saving.amount)} - 
+                  {format(new Date(selectedProof.saving.savingsDate), "dd MMM yyyy", { locale: id })}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowProofModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Content Modal */}
+            <div className="p-4 max-h-[calc(90vh-120px)] overflow-auto">
+              <div className="text-center">
+                {isImageFile(selectedProof.file) ? (
+                  // Tampilkan gambar
+                  <div className="space-y-4">
+                    <img
+                      src={selectedProof.url}
+                      alt={`Bukti pembayaran ${getMemberName(selectedProof.saving.memberId)}`}
+                      className="max-w-full max-h-[60vh] mx-auto rounded-lg shadow-lg"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'block';
+                      }}
+                    />
+                    <div style={{display: 'none'}} className="text-red-500">
+                      ❌ Gagal memuat gambar
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      📁 File: {selectedProof.file}
+                    </p>
+                  </div>
+                ) : isPdfFile(selectedProof.file) ? (
+                  // Tampilkan PDF
+                  <div className="space-y-4">
+                    <iframe
+                      src={selectedProof.url}
+                      className="w-full h-[60vh] border rounded-lg"
+                      title={`Bukti pembayaran ${getMemberName(selectedProof.saving.memberId)}`}
+                    />
+                    <p className="text-sm text-gray-600">
+                      📁 File: {selectedProof.file}
+                    </p>
+                    <a
+                      href={selectedProof.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                    >
+                      📥 Download PDF
+                    </a>
+                  </div>
+                ) : (
+                  // File lainnya
+                  <div className="space-y-4 py-8">
+                    <div className="text-6xl mb-4">📎</div>
+                    <h4 className="text-lg font-medium text-gray-900">
+                      File Bukti Pembayaran
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      📁 {selectedProof.file}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      File ini tidak dapat ditampilkan di browser. Silakan download untuk melihat.
+                    </p>
+                    <a
+                      href={selectedProof.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                    >
+                      📥 Download File
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer Modal */}
+            <div className="flex justify-end p-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => setShowProofModal(false)}
+                className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && (
