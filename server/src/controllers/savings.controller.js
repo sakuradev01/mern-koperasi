@@ -116,6 +116,7 @@ const createSavings = asyncHandler(async (req, res) => {
     savingsDate,
     type,
     description,
+    status: status || "Pending", // Tambahkan status field
     proofFile: req.file ? req.file.path : null,
   });
 

@@ -36,6 +36,14 @@ const createSavingsSchema = Joi.object({
     "string.base": "Deskripsi harus berupa string",
     "string.max": "Deskripsi maksimal 500 karakter",
   }),
+  status: Joi.string()
+    .valid("Pending", "Approved", "Rejected")
+    .default("Pending")
+    .optional()
+    .messages({
+      "string.base": "Status harus berupa string",
+      "any.only": "Status harus salah satu dari: Pending, Approved, Rejected",
+    }),
 });
 
 const updateSavingsSchema = Joi.object({
