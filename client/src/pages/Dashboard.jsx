@@ -145,9 +145,15 @@ const Dashboard = () => {
             🌸 Aktivitas Terkini
           </h3>
           <div className="space-y-4">
-            {stats.recentTransactions.map((transaction) => (
+            {stats.recentTransactions.slice(0, 5).map((transaction) => (
               <TransactionItem key={transaction.id} transaction={transaction} />
             ))}
+            {stats.recentTransactions.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                <span className="text-3xl mb-2 block">📊</span>
+                <p className="text-sm">Belum ada aktivitas terkini</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
