@@ -9,6 +9,8 @@ const MemberDetail = () => {
   const [savingsData, setSavingsData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showProofModal, setShowProofModal] = useState(false);
+  const [selectedProof, setSelectedProof] = useState(null);
 
   useEffect(() => {
     if (uuid) {
@@ -40,24 +42,14 @@ const MemberDetail = () => {
 
   const fetchMemberSavings = async () => {
     try {
-      // Coba dulu endpoint student dashboard
-      let response;
-      try {
-        response = await api.get(`/api/savings/student-dashboard/${uuid}`);
-        if (response.data && Array.isArray(response.data)) {
-          setSavingsData(response.data);
-          return;
-        }
-      } catch (err) {
-        console.log("Student dashboard endpoint failed, trying member savings...");
-      }
-
-      // Jika student dashboard gagal, coba endpoint savings by member
+      // Langsung pakai endpoint savings by member (yang pasti ada)
       if (memberData && memberData._id) {
-        response = await api.get(`/api/savings/member/${memberData._id}`);
+        const response = await api.get(`/api/savings/member/${memberData._id}`);
         if (response.data && response.data.success && response.data.data) {
           // Convert savings data ke format student dashboard
           const savingsArray = response.data.data.savings || [];
+          console.log("Raw savings data:", savingsArray); // Debug
+          
           const convertedData = savingsArray.map((saving, index) => ({
             installment_period: saving.installmentPeriod || (index + 1),
             projection: saving.productId?.depositAmount?.toString() || "0",
@@ -66,8 +58,10 @@ const MemberDetail = () => {
               year: 'numeric' 
             }),
             realization: saving.amount?.toString() || "0",
-            payment_proof: saving.proofFile ? 1 : 0
+            payment_proof: saving.proofFile || "0"
           }));
+          
+          console.log("Converted data:", convertedData); // Debug
           setSavingsData(convertedData);
         } else {
           setSavingsData([]);
@@ -123,6 +117,37 @@ const MemberDetail = () => {
     return savingsData.reduce((total, period) => {
       return total + (parseInt(period.projection) || 0);
     }, 0);
+  };
+
+  const handleShowProof = (proofFile, period) => {
+    if (proofFile && proofFile !== "0") {
+      // File sudah berisi path lengkap, langsung pakai
+      const fileUrl = `http://localhost:5000/${proofFile}`;
+      
+      console.log("Proof file:", proofFile); // Debug
+      console.log("Generated URL:", fileUrl); // Debug
+      
+      setSelectedProof({
+        file: proofFile,
+        period: period,
+        url: fileUrl
+      });
+      setShowProofModal(true);
+    }
+  };
+
+  const getFileExtension = (filename) => {
+    if (!filename || typeof filename !== 'string') return '';
+    return filename.split('.').pop().toLowerCase();
+  };
+
+  const isImageFile = (filename) => {
+    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
+    return imageExtensions.includes(getFileExtension(filename));
+  };
+
+  const isPdfFile = (filename) => {
+    return getFileExtension(filename) === 'pdf';
   };
 
   if (loading) {
@@ -329,9 +354,12 @@ const MemberDetail = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {period.payment_proof && period.payment_proof !== "0" ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          ✅ Ada Bukti
-                        </span>
+                        <button
+                          onClick={() => handleShowProof(period.payment_proof, period.installment_period)}
+                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 hover:bg-green-200 transition-colors cursor-pointer"
+                        >
+                          👁️ Lihat Bukti
+                        </button>
                       ) : (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                           📄 Belum Ada
@@ -376,6 +404,104 @@ const MemberDetail = () => {
           <div className="flex justify-between text-sm text-gray-600 mt-2">
             <span>Terealisasi: {formatCurrency(calculateTotalRealization())}</span>
             <span>Target: {formatCurrency(calculateTotalProjection())}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Popup untuk Bukti Pembayaran */}
+      {showProofModal && selectedProof && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl max-h-[90vh] w-full overflow-hidden">
+            {/* Header Modal */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-pink-50 to-rose-50">
+              <h3 className="text-lg font-semibold text-gray-900">
+                📄 Bukti Pembayaran - Periode {selectedProof.period}
+              </h3>
+              <button
+                onClick={() => setShowProofModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Content Modal */}
+            <div className="p-4 max-h-[calc(90vh-120px)] overflow-auto">
+              <div className="text-center">
+                {isImageFile(selectedProof.file) ? (
+                  // Tampilkan gambar
+                  <div className="space-y-4">
+                    <img
+                      src={selectedProof.url}
+                      alt={`Bukti pembayaran periode ${selectedProof.period}`}
+                      className="max-w-full max-h-[60vh] mx-auto rounded-lg shadow-lg"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'block';
+                      }}
+                    />
+                    <div style={{display: 'none'}} className="text-red-500">
+                      ❌ Gagal memuat gambar
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      📁 File: {selectedProof.file}
+                    </p>
+                  </div>
+                ) : isPdfFile(selectedProof.file) ? (
+                  // Tampilkan PDF
+                  <div className="space-y-4">
+                    <iframe
+                      src={selectedProof.url}
+                      className="w-full h-[60vh] border rounded-lg"
+                      title={`Bukti pembayaran periode ${selectedProof.period}`}
+                    />
+                    <p className="text-sm text-gray-600">
+                      📁 File: {selectedProof.file}
+                    </p>
+                    <a
+                      href={selectedProof.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                    >
+                      📥 Download PDF
+                    </a>
+                  </div>
+                ) : (
+                  // File lainnya
+                  <div className="space-y-4 py-8">
+                    <div className="text-6xl mb-4">📎</div>
+                    <h4 className="text-lg font-medium text-gray-900">
+                      File Bukti Pembayaran
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      📁 {selectedProof.file}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      File ini tidak dapat ditampilkan di browser. Silakan download untuk melihat.
+                    </p>
+                    <a
+                      href={selectedProof.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                    >
+                      📥 Download File
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer Modal */}
+            <div className="flex justify-end p-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => setShowProofModal(false)}
+                className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Tutup
+              </button>
+            </div>
           </div>
         </div>
       )}
