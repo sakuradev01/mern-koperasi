@@ -39,10 +39,10 @@ const Savings = () => {
   const [selectedProof, setSelectedProof] = useState(null);
 
   // Fetch data
-  const fetchSavings = async () => {
+  const fetchSavings = async (page = 1, limit = 100) => {
     try {
       const token = localStorage.getItem("token");
-      const response = await axios.get(`${API_URL}/api/savings`, {
+      const response = await axios.get(`${API_URL}/api/savings?page=${page}&limit=${limit}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data =
@@ -650,69 +650,97 @@ const Savings = () => {
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
+      {filteredSavings.length > 0 && (
         <div className="bg-white rounded-lg shadow border border-pink-100 p-4 mt-6">
           <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
             <div className="text-sm text-gray-600">
-              Halaman {currentPage} dari {totalPages} 
-              ({filteredSavings.length} total data)
+              Menampilkan {startIndex + 1}-{Math.min(endIndex, filteredSavings.length)} dari {filteredSavings.length} data
+              {totalPages > 1 && ` (Halaman ${currentPage} dari ${totalPages})`}
             </div>
             
-            <div className="flex space-x-2">
-              {/* Previous Button */}
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  currentPage === 1
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-pink-500 text-white hover:bg-pink-600'
-                } transition-colors`}
-              >
-                ← Prev
-              </button>
+            {totalPages > 1 && (
+              <div className="flex space-x-1">
+                {/* Previous Button */}
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className={`px-3 py-2 rounded-md text-sm font-medium ${
+                    currentPage === 1
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-pink-500 text-white hover:bg-pink-600'
+                  } transition-colors`}
+                >
+                  ← Prev
+                </button>
 
-              {/* Page Numbers */}
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum;
-                if (totalPages <= 5) {
-                  pageNum = i + 1;
-                } else if (currentPage <= 3) {
-                  pageNum = i + 1;
-                } else if (currentPage >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i;
-                } else {
-                  pageNum = currentPage - 2 + i;
-                }
+                {/* First page */}
+                {currentPage > 3 && totalPages > 5 && (
+                  <>
+                    <button
+                      onClick={() => setCurrentPage(1)}
+                      className="px-3 py-2 rounded-md text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                    >
+                      1
+                    </button>
+                    {currentPage > 4 && <span className="px-2 py-2 text-gray-500">...</span>}
+                  </>
+                )}
 
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => setCurrentPage(pageNum)}
-                    className={`px-3 py-2 rounded-md text-sm font-medium ${
-                      currentPage === pageNum
-                        ? 'bg-pink-500 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    } transition-colors`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
+                {/* Page Numbers */}
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
 
-              {/* Next Button */}
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-                className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  currentPage === totalPages
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-pink-500 text-white hover:bg-pink-600'
-                } transition-colors`}
-              >
-                Next →
-              </button>
-            </div>
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`px-3 py-2 rounded-md text-sm font-medium ${
+                        currentPage === pageNum
+                          ? 'bg-pink-500 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      } transition-colors`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+
+                {/* Last page */}
+                {currentPage < totalPages - 2 && totalPages > 5 && (
+                  <>
+                    {currentPage < totalPages - 3 && <span className="px-2 py-2 text-gray-500">...</span>}
+                    <button
+                      onClick={() => setCurrentPage(totalPages)}
+                      className="px-3 py-2 rounded-md text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                    >
+                      {totalPages}
+                    </button>
+                  </>
+                )}
+
+                {/* Next Button */}
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className={`px-3 py-2 rounded-md text-sm font-medium ${
+                    currentPage === totalPages
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-pink-500 text-white hover:bg-pink-600'
+                  } transition-colors`}
+                >
+                  Next →
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
