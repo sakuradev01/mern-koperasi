@@ -43,34 +43,40 @@ const MemberDetail = () => {
 
   const fetchMemberSavings = async () => {
     try {
-      // Langsung pakai endpoint savings by member (yang pasti ada)
-      if (memberData && memberData._id) {
-        const response = await api.get(`/api/savings/member/${memberData._id}`);
+      // SIMPLE: Langsung query database berdasarkan UUID member
+      if (memberData && memberData.uuid) {
+        console.log("Fetching ALL savings for member UUID:", memberData.uuid); // Debug
+        
+        // Query langsung ke database untuk semua savings dengan UUID ini
+        const response = await api.get(`/api/savings/member-by-uuid/${memberData.uuid}`);
+        console.log("Direct DB response:", response.data); // Debug
+        
         if (response.data && response.data.success && response.data.data) {
-          // Convert savings data ke format student dashboard
           const savingsArray = response.data.data.savings || [];
-          console.log("Raw savings data:", savingsArray); // Debug
+          console.log("Raw savings from DB:", savingsArray); // Debug
           
           // Get product info untuk term duration
           const productInfo = memberData.product;
-          const termDuration = productInfo?.termDuration || 12; // Default 12 bulan
+          const termDuration = productInfo?.termDuration || 12;
           const depositAmount = productInfo?.depositAmount || 0;
-          
-          console.log("Product info:", productInfo); // Debug
-          console.log("Term duration:", termDuration); // Debug
           
           // Create map dari existing savings berdasarkan installment period
           const savingsMap = {};
           savingsArray.forEach(saving => {
-            savingsMap[saving.installmentPeriod] = saving;
+            // PERBAIKAN: Ambil SEMUA savings (Approved, Pending, Rejected) tipe Setoran
+            if (saving.type === "Setoran") {
+              savingsMap[saving.installmentPeriod] = saving;
+            }
           });
+          
+          console.log("Approved savings map:", savingsMap); // Debug
           
           // Generate semua periode dari 1 sampai termDuration
           const convertedData = [];
           for (let period = 1; period <= termDuration; period++) {
             const existingSaving = savingsMap[period];
             
-            // Calculate date projection (current date + period months)
+            // Calculate date projection
             const currentDate = new Date();
             const projectionDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + period, 1);
             const dateProjection = projectionDate.toLocaleDateString('en-US', { 
@@ -84,11 +90,11 @@ const MemberDetail = () => {
               dateProjection: dateProjection,
               realization: existingSaving ? existingSaving.amount.toString() : "0",
               payment_proof: existingSaving ? (existingSaving.proofFile || "0") : "0",
-              status: existingSaving ? existingSaving.status : "Belum Bayar",
-              rawSaving: existingSaving // Simpan data mentah untuk debug
+              status: existingSaving ? existingSaving.status : "Belum Bayar"
             });
           }
           
+          console.log("Final converted data:", convertedData); // Debug
           setSavingsData(convertedData);
         } else {
           setSavingsData([]);

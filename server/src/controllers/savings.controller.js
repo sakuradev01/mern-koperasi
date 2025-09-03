@@ -242,26 +242,40 @@ const getSavingsByMember = asyncHandler(async (req, res) => {
   const { memberId } = req.params;
   const { page, limit } = value;
 
-  const savings = await Savings.find({ memberId })
-    .populate("memberId", "name email phone")
+  // PERBAIKAN: Cari savings berdasarkan memberId langsung dulu
+  let savings = await Savings.find({ memberId })
+    .populate("memberId", "name email phone uuid")
     .populate("productId", "title depositAmount returnProfit termDuration")
     .sort({ createdAt: -1 })
     .limit(limit)
     .skip((page - 1) * limit);
 
-  const total = await Savings.countDocuments({ memberId });
+  let total = await Savings.countDocuments({ memberId });
 
-  // Calculate total savings
-  const approvedSavings = await Savings.find({
-    memberId,
-    status: "Approved",
-    type: "Setoran",
-  });
-  const approvedWithdrawals = await Savings.find({
-    memberId,
-    status: "Approved",
-    type: "Penarikan",
-  });
+  // Jika tidak ada data, coba cari berdasarkan UUID member
+  if (savings.length === 0) {
+    // Cari member berdasarkan memberId untuk mendapatkan UUID
+    const member = await Member.findById(memberId);
+    if (member && member.uuid) {
+      // Cari semua savings dan filter berdasarkan UUID
+      const allSavings = await Savings.find({})
+        .populate("memberId", "name email phone uuid")
+        .populate("productId", "title depositAmount returnProfit termDuration")
+        .sort({ createdAt: -1 });
+      
+      savings = allSavings.filter(saving => 
+        saving.memberId && saving.memberId.uuid === member.uuid
+      ).slice((page - 1) * limit, page * limit);
+      
+      total = allSavings.filter(saving => 
+        saving.memberId && saving.memberId.uuid === member.uuid
+      ).length;
+    }
+  }
+
+  // Calculate total savings - PERBAIKAN: gunakan data yang sudah difilter
+  const approvedSavings = savings.filter(s => s.status === "Approved" && s.type === "Setoran");
+  const approvedWithdrawals = savings.filter(s => s.status === "Approved" && s.type === "Penarikan");
 
   const totalSavings = approvedSavings.reduce((sum, s) => sum + s.amount, 0);
   const totalWithdrawals = approvedWithdrawals.reduce(
@@ -269,6 +283,8 @@ const getSavingsByMember = asyncHandler(async (req, res) => {
     0
   );
   const balance = totalSavings - totalWithdrawals;
+
+  console.log(`getSavingsByMember: Found ${savings.length} savings for memberId ${memberId}`); // Debug
 
   res.status(200).json(
     new ApiResponse(200, {
@@ -368,12 +384,44 @@ const getStudentDashboardSavings = asyncHandler(async (req, res) => {
   await member.populate("productId");
   const product = member.productId;
 
-  // Get deposit history for this member
-  const depositHistory = await Savings.find({
+  // PERBAIKAN TOTAL: Cari semua data savings untuk member ini dengan berbagai cara
+  console.log(`Searching savings for member UUID: ${member.uuid}, ID: ${member._id}`); // Debug
+  
+  // Method 1: Cari berdasarkan member._id langsung
+  let depositHistory = await Savings.find({
     memberId: member._id,
     type: "Setoran",
     status: "Approved",
   }).select("installmentPeriod amount proofFile");
+  
+  console.log(`Method 1 (by member._id): Found ${depositHistory.length} savings`); // Debug
+
+  // Method 2: Cari semua savings dan filter berdasarkan UUID (untuk data yang dibuat admin)
+  const allSavings = await Savings.find({
+    type: "Setoran",
+    status: "Approved"
+  }).populate('memberId', 'uuid name').select("installmentPeriod amount proofFile memberId");
+  
+  const savingsByUuid = allSavings.filter(saving => 
+    saving.memberId && saving.memberId.uuid === member.uuid
+  );
+  
+  console.log(`Method 2 (by UUID): Found ${savingsByUuid.length} savings`); // Debug
+
+  // Gabungkan hasil dari kedua method dan hapus duplikat
+  const allFoundSavings = [...depositHistory, ...savingsByUuid];
+  
+  // Hapus duplikat berdasarkan installmentPeriod
+  const uniqueSavings = allFoundSavings.reduce((acc, current) => {
+    const existing = acc.find(item => item.installmentPeriod === current.installmentPeriod);
+    if (!existing) {
+      acc.push(current);
+    }
+    return acc;
+  }, []);
+  
+  depositHistory = uniqueSavings;
+  console.log(`Final result: Found ${depositHistory.length} unique approved savings for member ${member.uuid}`); // Debug
 
   // Map deposit history by installment period
   const realizationAmountMap = {};
@@ -382,6 +430,7 @@ const getStudentDashboardSavings = asyncHandler(async (req, res) => {
   depositHistory.forEach((deposit) => {
     realizationAmountMap[deposit.installmentPeriod] = deposit.amount;
     realizationProofFileMap[deposit.installmentPeriod] = deposit.proofFile || 0;
+    console.log(`Period ${deposit.installmentPeriod}: ${deposit.amount}`); // Debug
   });
 
   // Generate projection data for all periods
@@ -414,6 +463,60 @@ const getStudentDashboardSavings = asyncHandler(async (req, res) => {
   res.status(200).json(delivered);
 });
 
+// Get savings by member UUID - SIMPLE APPROACH
+const getSavingsByMemberUuid = asyncHandler(async (req, res) => {
+  const { uuid } = req.params;
+  
+  console.log(`getSavingsByMemberUuid: Searching for member UUID: ${uuid}`); // Debug
+  
+  // Cari member berdasarkan UUID
+  const member = await Member.findOne({ uuid });
+  if (!member) {
+    throw new ApiError(404, "Member tidak ditemukan");
+  }
+  
+  console.log(`Found member: ${member.name} (ID: ${member._id})`); // Debug
+  
+  // LANGSUNG QUERY SEMUA SAVINGS untuk member ini
+  // Method 1: Cari berdasarkan member._id
+  let allSavings = await Savings.find({ memberId: member._id })
+    .populate("memberId", "name email phone uuid")
+    .populate("productId", "title depositAmount returnProfit termDuration")
+    .sort({ installmentPeriod: 1 });
+  
+  console.log(`Method 1 (by member._id): Found ${allSavings.length} savings`); // Debug
+  
+  // Method 2: Jika tidak ada, cari dengan populate dan filter UUID
+  if (allSavings.length === 0) {
+    const allSavingsInDB = await Savings.find({})
+      .populate("memberId", "name email phone uuid")
+      .populate("productId", "title depositAmount returnProfit termDuration")
+      .sort({ installmentPeriod: 1 });
+    
+    allSavings = allSavingsInDB.filter(saving => 
+      saving.memberId && saving.memberId.uuid === uuid
+    );
+    
+    console.log(`Method 2 (by UUID filter): Found ${allSavings.length} savings`); // Debug
+  }
+  
+  // Debug: Print semua savings yang ditemukan
+  allSavings.forEach(saving => {
+    console.log(`Period ${saving.installmentPeriod}: ${saving.amount} - ${saving.status} - ${saving.type}`);
+  });
+  
+  res.status(200).json(
+    new ApiResponse(200, {
+      savings: allSavings,
+      member: {
+        uuid: member.uuid,
+        name: member.name,
+        _id: member._id
+      }
+    })
+  );
+});
+
 export {
   getAllSavings,
   getSavingsById,
@@ -421,6 +524,7 @@ export {
   updateSavings,
   deleteSavings,
   getSavingsByMember,
+  getSavingsByMemberUuid,
   getSavingsSummary,
   getLastInstallmentPeriod,
   getStudentDashboardSavings,

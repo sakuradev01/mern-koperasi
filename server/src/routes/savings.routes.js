@@ -6,6 +6,7 @@ import {
   updateSavings,
   deleteSavings,
   getSavingsByMember,
+  getSavingsByMemberUuid,
   getSavingsSummary,
   getLastInstallmentPeriod,
   getStudentDashboardSavings,
@@ -51,6 +52,7 @@ router
   .delete(deleteSavings);
 
 router.route("/member/:memberId").get(getSavingsByMember);
+router.route("/member-by-uuid/:uuid").get(getSavingsByMemberUuid);
 router.route("/summary").get(getSavingsSummary);
 router
   .route("/check-period/:memberId/:productId")
