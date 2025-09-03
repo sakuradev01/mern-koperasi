@@ -173,6 +173,48 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "2.2 Member Submit Savings (Secure)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{member_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "amount",
+                  "value": "100000",
+                  "description": "Jumlah simpanan (harus sesuai dengan depositAmount produk member)",
+                  "type": "text"
+                },
+                {
+                  "key": "description",
+                  "value": "Simpanan bulanan periode ini",
+                  "description": "Deskripsi simpanan (opsional)",
+                  "type": "text"
+                },
+                {
+                  "key": "proofFile",
+                  "description": "File bukti transfer/setoran (opsional)",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/members/savings/{{test_uuid_puspita}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "members", "savings", "{{test_uuid_puspita}}"]
+            }
+          },
+          "response": []
         }
       ]
     },

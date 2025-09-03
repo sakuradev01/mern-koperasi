@@ -1,7 +1,10 @@
 import { Member } from "../models/member.model.js";
 import { User } from "../models/user.model.js";
 import { Savings } from "../models/savings.model.js";
+import { Product } from "../models/product.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
+import { ApiError } from "../utils/ApiError.js";
 
 // Get all members
 const getAllMembers = asyncHandler(async (req, res) => {
@@ -263,6 +266,114 @@ const validateMemberUuid = asyncHandler(async (req, res) => {
   }
 });
 
+// Create savings by member (secure - member can only submit for themselves)
+const createMemberSavings = asyncHandler(async (req, res) => {
+  try {
+    const { uuid } = req.params;
+    const { amount, description } = req.body;
+    
+    // Validasi input
+    if (!amount || amount <= 0) {
+      throw new ApiError(400, "Jumlah simpanan harus lebih dari 0");
+    }
+
+    // Member data sudah tersedia dari middleware requireMemberOwnership
+    const member = req.member;
+    
+    // Validasi member memiliki productId
+    if (!member.productId) {
+      throw new ApiError(400, "Member belum memiliki produk yang terdaftar");
+    }
+
+    // Validasi product masih aktif
+    const product = await Product.findById(member.productId);
+    if (!product || !product.isActive) {
+      throw new ApiError(400, "Produk tidak aktif atau tidak ditemukan");
+    }
+
+    // Validasi amount sesuai dengan depositAmount produk (convert to number)
+    const numAmount = parseInt(amount);
+    if (numAmount !== product.depositAmount) {
+      throw new ApiError(400, `Jumlah simpanan harus sesuai dengan produk "${product.title}": Rp ${product.depositAmount.toLocaleString()}`);
+    }
+
+    // Cari periode installment terakhir untuk member dan produk ini
+    const lastSaving = await Savings.findOne({
+      memberId: member._id,
+      productId: member.productId,
+      type: "Setoran"
+    }).sort({ installmentPeriod: -1 });
+
+    // Tentukan periode installment berikutnya
+    const nextPeriod = lastSaving ? lastSaving.installmentPeriod + 1 : 1;
+
+    // Validasi tidak melebihi termDuration
+    if (nextPeriod > product.termDuration) {
+      throw new ApiError(400, `Periode simpanan sudah mencapai maksimal (${product.termDuration} periode)`);
+    }
+
+    // Cek apakah sudah ada simpanan pending untuk periode ini
+    const existingPendingSaving = await Savings.findOne({
+      memberId: member._id,
+      productId: member.productId,
+      installmentPeriod: nextPeriod,
+      status: "Pending"
+    });
+
+    if (existingPendingSaving) {
+      throw new ApiError(400, `Sudah ada simpanan pending untuk periode ${nextPeriod}`);
+    }
+
+    // Buat data simpanan baru
+    const savingsData = {
+      installmentPeriod: nextPeriod,
+      memberId: member._id,
+      productId: member.productId,
+      amount: amount,
+      savingsDate: new Date(),
+      type: "Setoran",
+      description: description || `Simpanan periode ${nextPeriod}`,
+      status: "Pending", // Selalu pending untuk member submission
+      proofFile: req.file ? req.file.path : null
+    };
+
+    // Simpan ke database
+    const newSaving = new Savings(savingsData);
+    await newSaving.save();
+
+    // Populate data untuk response
+    await newSaving.populate([
+      {
+        path: "memberId",
+        select: "uuid name"
+      },
+      {
+        path: "productId",
+        select: "title depositAmount returnProfit termDuration"
+      }
+    ]);
+
+    res.status(201).json(
+      new ApiResponse(
+        201,
+        {
+          saving: newSaving,
+          message: "Simpanan berhasil disubmit dan menunggu persetujuan admin"
+        },
+        "Simpanan berhasil dibuat"
+      )
+    );
+
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    
+    console.error("Create member savings error:", error);
+    throw new ApiError(500, "Gagal membuat simpanan");
+  }
+});
+
 export {
   getAllMembers,
   getMemberByUuid,
@@ -270,4 +381,5 @@ export {
   updateMember,
   deleteMember,
   validateMemberUuid,
+  createMemberSavings,
 };
