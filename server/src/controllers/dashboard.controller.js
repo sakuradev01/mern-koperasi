@@ -36,7 +36,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
       .populate("memberId", "name uuid")
       .sort({ createdAt: -1 })
       .limit(10)
-      .select("amount savingsDate type memberId description");
+      .select("amount savingsDate type memberId description status");
 
     // Get monthly statistics for chart
     const monthlyStats = await Savings.aggregate([
@@ -107,10 +107,9 @@ const getDashboardStats = asyncHandler(async (req, res) => {
       member: transaction.memberId?.name || "Unknown",
       memberUuid: transaction.memberId?.uuid || "",
       amount: transaction.amount,
-      date: transaction.savingsDate
-        ? new Date(transaction.savingsDate).toLocaleDateString("id-ID")
-        : new Date(transaction.createdAt).toLocaleDateString("id-ID"),
+      date: transaction.savingsDate || transaction.createdAt,
       type: transaction.type || "Setoran",
+      status: transaction.status || "Pending",
       description: transaction.description || "",
     }));
 
