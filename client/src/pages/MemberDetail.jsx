@@ -84,11 +84,11 @@ const MemberDetail = () => {
               dateProjection: dateProjection,
               realization: existingSaving ? existingSaving.amount.toString() : "0",
               payment_proof: existingSaving ? (existingSaving.proofFile || "0") : "0",
-              status: existingSaving ? existingSaving.status : "Belum Bayar"
+              status: existingSaving ? existingSaving.status : "Belum Bayar",
+              rawSaving: existingSaving // Simpan data mentah untuk debug
             });
           }
           
-          console.log("Converted data with all periods:", convertedData); // Debug
           setSavingsData(convertedData);
         } else {
           setSavingsData([]);
@@ -122,33 +122,32 @@ const MemberDetail = () => {
   };
 
   const getStatusBadge = (period) => {
-    const realAmount = parseInt(period.realization) || 0;
-    const projAmount = parseInt(period.projection) || 0;
+    // Langsung gunakan status dari database, simple!
+    const statusColors = {
+      "Approved": "bg-green-100 text-green-800",
+      "Pending": "bg-yellow-100 text-yellow-800", 
+      "Rejected": "bg-red-100 text-red-800",
+      "Belum Bayar": "bg-gray-100 text-gray-800"
+    };
     
-    // Jika ada status dari database, gunakan itu
-    if (period.status && period.status !== "Belum Bayar") {
-      const statusColors = {
-        "Approved": "bg-green-100 text-green-800",
-        "Pending": "bg-yellow-100 text-yellow-800", 
-        "Rejected": "bg-red-100 text-red-800"
-      };
-      const colorClass = statusColors[period.status] || "bg-gray-100 text-gray-800";
-      return <span className={`px-2 py-1 rounded-full text-xs font-medium ${colorClass}`}>
-        {period.status}
-      </span>;
-    }
+    const status = period.status || "Belum Bayar";
+    const colorClass = statusColors[status] || "bg-gray-100 text-gray-800";
     
-    // Jika belum ada transaksi
-    if (realAmount === 0) {
-      return <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium">⏳ Belum Bayar</span>;
-    }
-    
-    // Berdasarkan jumlah pembayaran
-    if (realAmount >= projAmount) {
-      return <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">✅ Lunas</span>;
+    // Tampilkan status sesuai database
+    let displayText = status;
+    if (status === "Approved") {
+      displayText = "✅ Approved";
+    } else if (status === "Pending") {
+      displayText = "⏳ Pending";
+    } else if (status === "Rejected") {
+      displayText = "❌ Rejected";
     } else {
-      return <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">⏳ Sebagian</span>;
+      displayText = "⏳ Belum Bayar";
     }
+    
+    return <span className={`px-2 py-1 rounded-full text-xs font-medium ${colorClass}`}>
+      {displayText}
+    </span>;
   };
 
   const calculateTotalRealization = () => {

@@ -247,6 +247,28 @@ const Savings = () => {
     setFormData({ ...formData, proofFile: file });
   };
 
+  // Handle approve
+  const handleApprove = async (id) => {
+    if (window.confirm("Apakah Anda yakin ingin menyetujui simpanan ini?")) {
+      try {
+        const token = localStorage.getItem("token");
+        const formData = new FormData();
+        formData.append("status", "Approved");
+        
+        await axios.put(`${API_URL}/api/savings/${id}`, formData, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        });
+        toast.success("Simpanan berhasil disetujui");
+        fetchSavings();
+      } catch (error) {
+        toast.error(error.response?.data?.message || "Gagal menyetujui simpanan");
+      }
+    }
+  };
+
   // Handle delete
   const handleDelete = async (id) => {
     if (window.confirm("Apakah Anda yakin ingin menghapus data ini?")) {
@@ -613,6 +635,14 @@ const Savings = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-2">
+                        {saving.status === "Pending" && (
+                          <button
+                            onClick={() => handleApprove(saving._id)}
+                            className="text-green-600 hover:text-green-900 transition-colors"
+                          >
+                            ✅ Approve
+                          </button>
+                        )}
                         <button
                           onClick={() => handleEdit(saving)}
                           className="text-blue-600 hover:text-blue-900 transition-colors"
