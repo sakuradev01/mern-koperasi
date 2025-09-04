@@ -78,13 +78,31 @@ app.use("/uploads", (req, res, next) => {
   next();
 }, express.static("uploads")); // Serve uploads folder with CORS
 
-// Also expose uploads under /api to pass through Nginx reverse proxy
-app.use("/api/uploads", express.static("uploads"));
-
 app.use(cookieParser());
 
 import Routes from "./routes/index.js";
 import adminRoutes from "./routes/admin.routes.js";
+
+// IMPORTANT: Mount /api/uploads BEFORE other /api routes to avoid conflicts
+app.use("/api/uploads", (req, res, next) => {
+  // Set CORS headers for file access via /api/uploads
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+  
+  next();
+}, express.static("uploads"));
+
 app.use("/api", Routes);
 app.use("/api", adminRoutes);
 
@@ -107,6 +125,15 @@ app.get("/debug/config", (req, res) => {
     requestOrigin: req.headers.origin,
     uploadsPath: "uploads/savings/",
     filesInUploads: fs.existsSync("uploads/savings/") ? fs.readdirSync("uploads/savings/") : []
+  });
+});
+
+// Debug endpoint to check /api/uploads route
+app.get("/api/uploads/test", (req, res) => {
+  res.json({
+    message: "API uploads route is working!",
+    timestamp: new Date().toISOString(),
+    availableFiles: fs.existsSync("uploads/savings/") ? fs.readdirSync("uploads/savings/") : []
   });
 });
 
