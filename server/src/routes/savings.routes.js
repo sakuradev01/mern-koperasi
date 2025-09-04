@@ -12,29 +12,9 @@ import {
   getStudentDashboardSavings,
 } from "../controllers/savings.controller.js";
 import { verifyToken } from "../middlewares/auth.middleware.js";
-import multer from "multer";
+import { uploadWithErrorHandling } from "../middlewares/upload.middleware.js";
 
 const router = express.Router();
-
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "uploads/savings/");
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(
-      null,
-      file.fieldname +
-        "-" +
-        uniqueSuffix +
-        "." +
-        file.originalname.split(".").pop()
-    );
-  },
-});
-
-const upload = multer({ storage: storage });
 
 // Public routes (with authentication)
 router.use(verifyToken);
@@ -43,12 +23,12 @@ router.use(verifyToken);
 router
   .route("/")
   .get(getAllSavings)
-  .post(upload.single("proofFile"), createSavings);
+  .post(uploadWithErrorHandling("proofFile"), createSavings);
 
 router
   .route("/:id")
   .get(getSavingsById)
-  .put(upload.single("proofFile"), updateSavings)
+  .put(uploadWithErrorHandling("proofFile"), updateSavings)
   .delete(deleteSavings);
 
 router.route("/member/:memberId").get(getSavingsByMember);
