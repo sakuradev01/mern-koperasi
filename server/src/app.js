@@ -22,7 +22,9 @@ const allowedOrigins = [
   "http://localhost:3000",
   conf.corsOrigin1,
   conf.corsOrigin2, 
-  conf.corsOrigin3
+  conf.corsOrigin3,
+  conf.corsOrigin4,
+  conf.corsOrigin5
 ].filter(origin => origin && origin !== "undefined" && origin !== "null");
 
 // Log CORS configuration at startup
@@ -31,6 +33,8 @@ console.log("📋 Allowed origins:", allowedOrigins);
 console.log("🌐 CORS_ORIGIN1:", conf.corsOrigin1);
 console.log("🌐 CORS_ORIGIN2:", conf.corsOrigin2);
 console.log("🌐 CORS_ORIGIN3:", conf.corsOrigin3);
+console.log("🌐 CORS_ORIGIN4:", conf.corsOrigin4);
+console.log("🌐 CORS_ORIGIN5:", conf.corsOrigin5);
 
 app.use(
   cors({
@@ -94,6 +98,8 @@ app.get("/debug/config", (req, res) => {
       corsOrigin1: conf.corsOrigin1,
       corsOrigin2: conf.corsOrigin2,
       corsOrigin3: conf.corsOrigin3,
+      corsOrigin4: conf.corsOrigin4,
+      corsOrigin5: conf.corsOrigin5,
     },
     requestOrigin: req.headers.origin,
     uploadsPath: "uploads/savings/",

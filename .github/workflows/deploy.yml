@@ -44,6 +44,10 @@ jobs:
             echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
             echo "STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}" >> .env
             echo "NODE_ENV=production" >> .env
+            
+            # Add additional CORS origins for better compatibility
+            echo "CORS_ORIGIN4=https://${{ secrets.EC2_HOST }}" >> .env
+            echo "CORS_ORIGIN5=http://${{ secrets.EC2_HOST }}:3000" >> .env
 
             # Install backend dependencies
             npm ci --production
