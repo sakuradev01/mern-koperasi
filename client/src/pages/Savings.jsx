@@ -37,6 +37,10 @@ const Savings = () => {
   const [itemsPerPage] = useState(10);
   const [showProofModal, setShowProofModal] = useState(false);
   const [selectedProof, setSelectedProof] = useState(null);
+  
+  // Validation states
+  const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch data
   const fetchSavings = async (page = 1, limit = 100) => {
@@ -151,6 +155,31 @@ const Savings = () => {
     originalSelection.productId,
   ]);
 
+  // Check for duplicate period in real-time
+  useEffect(() => {
+    if (formData.memberId && formData.productId && formData.installmentPeriod) {
+      const existingSaving = savings.find(
+        (saving) =>
+          saving.memberId?._id === formData.memberId &&
+          saving.productId?._id === formData.productId &&
+          saving.installmentPeriod === formData.installmentPeriod &&
+          (!editingId || saving._id !== editingId) // Exclude current editing item
+      );
+      
+      if (existingSaving) {
+        setErrors(prev => ({
+          ...prev,
+          installmentPeriod: `Periode ${formData.installmentPeriod} sudah pernah ditambahkan untuk member dan produk ini`
+        }));
+      } else if (errors.installmentPeriod && errors.installmentPeriod.includes("sudah pernah")) {
+        setErrors(prev => ({
+          ...prev,
+          installmentPeriod: ""
+        }));
+      }
+    }
+  }, [formData.memberId, formData.productId, formData.installmentPeriod, savings, editingId, errors.installmentPeriod]);
+
   // Format currency
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("id-ID", {
@@ -190,9 +219,64 @@ const Savings = () => {
     }
   };
 
+  // Frontend validation function
+  const validateForm = () => {
+    const newErrors = {};
+    
+    // Check required fields
+    if (!formData.memberId) {
+      newErrors.memberId = "Anggota harus dipilih";
+    }
+    
+    if (!formData.productId) {
+      newErrors.productId = "Produk simpanan harus dipilih";
+    }
+    
+    if (!formData.amount || formData.amount <= 0) {
+      newErrors.amount = "Jumlah harus lebih dari 0";
+    }
+    
+    if (!formData.savingsDate) {
+      newErrors.savingsDate = "Tanggal harus diisi";
+    }
+    
+    // Check minimum amount against product
+    if (formData.productId && formData.amount) {
+      const selectedProduct = products.find(p => p._id === formData.productId);
+      if (selectedProduct && formData.amount < selectedProduct.depositAmount) {
+        newErrors.amount = `Jumlah minimal ${formatCurrency(selectedProduct.depositAmount)}`;
+      }
+    }
+    
+    // Check proof file for new "Setoran"
+    if (formData.type === "Setoran" && !editingId && !formData.proofFile) {
+      newErrors.proofFile = "Bukti pembayaran wajib untuk setoran baru";
+    }
+    
+    // Check file size
+    if (formData.proofFile && formData.proofFile.size > 5 * 1024 * 1024) {
+      newErrors.proofFile = "File tidak boleh lebih dari 5MB";
+    }
+    
+    return newErrors;
+  };
+
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Clear previous errors
+    setErrors({});
+    
+    // Validate form
+    const validationErrors = validateForm();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      toast.error("Mohon perbaiki kesalahan pada form");
+      return;
+    }
+    
+    setIsSubmitting(true);
 
     const formDataToSend = new FormData();
 
@@ -234,24 +318,39 @@ const Savings = () => {
       console.error("❌ Error saving savings:", error);
       console.error("❌ Error response:", error.response?.data);
 
-      // Improved error handling with better UI feedback
-      const errorMessage =
-        error.response?.data?.message || "Gagal menyimpan data";
+      // Extract specific validation errors from backend
+      const errorMessage = error.response?.data?.message || "Gagal menyimpan data";
+      
+      // Handle specific backend validation errors
+      const newErrors = {};
+      if (errorMessage.includes("periode") && errorMessage.includes("sudah pernah")) {
+        newErrors.installmentPeriod = "Periode ini sudah pernah ditambahkan untuk member dan produk ini";
+      }
+      
+      if (errorMessage.includes("minimal")) {
+        newErrors.amount = errorMessage;
+      }
+      
+      if (errorMessage.includes("bukti") || errorMessage.includes("upload")) {
+        newErrors.proofFile = errorMessage;
+      }
+      
+      if (Object.keys(newErrors).length > 0) {
+        setErrors(newErrors);
+      }
 
       // Show detailed validation errors if available
       if (error.response?.status === 400) {
-        toast.error(
-          `Validasi Error: ${errorMessage}. Silakan periksa kembali data yang Anda masukkan.`
-        );
+        toast.error(`❌ ${errorMessage}`);
       } else if (error.response?.status === 404) {
-        toast.error(`Data Tidak Ditemukan: ${errorMessage}`);
+        toast.error(`❌ Data Tidak Ditemukan: ${errorMessage}`);
       } else if (error.response?.status === 500) {
-        toast.error(
-          `Server Error: ${errorMessage}. Silakan coba lagi atau hubungi administrator.`
-        );
+        toast.error(`❌ Server Error: ${errorMessage}. Silakan coba lagi.`);
       } else {
-        toast.error(`Error: ${errorMessage}`);
+        toast.error(`❌ Error: ${errorMessage}`);
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -268,6 +367,8 @@ const Savings = () => {
     });
     setLastPeriod(0);
     setOriginalSelection({ memberId: "", productId: "" });
+    setErrors({});
+    setIsSubmitting(false);
   };
 
   // Handle file upload
@@ -962,14 +1063,21 @@ const Savings = () => {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Anggota
+                    Anggota <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={formData.memberId}
-                    onChange={(e) =>
-                      setFormData({ ...formData, memberId: e.target.value })
-                    }
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    onChange={(e) => {
+                      setFormData({ ...formData, memberId: e.target.value });
+                      if (errors.memberId) {
+                        setErrors({ ...errors, memberId: "" });
+                      }
+                    }}
+                    className={`mt-1 block w-full rounded-md shadow-sm focus:ring-blue-500 ${
+                      errors.memberId
+                        ? "border-red-300 focus:border-red-500 bg-red-50"
+                        : "border-gray-300 focus:border-blue-500"
+                    }`}
                     required
                   >
                     <option value="">Pilih Anggota</option>
@@ -982,21 +1090,34 @@ const Savings = () => {
                       </option>
                     ))}
                   </select>
+                  {errors.memberId && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center">
+                      <span className="mr-1">⚠️</span>
+                      {errors.memberId}
+                    </p>
+                  )}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Produk Simpanan
+                    Produk Simpanan <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={formData.productId}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setFormData({
                         ...formData,
                         productId: e.target.value,
-                      })
-                    }
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      });
+                      if (errors.productId) {
+                        setErrors({ ...errors, productId: "" });
+                      }
+                    }}
+                    className={`mt-1 block w-full rounded-md shadow-sm focus:ring-blue-500 ${
+                      errors.productId
+                        ? "border-red-300 focus:border-red-500 bg-red-50"
+                        : "border-gray-300 focus:border-blue-500"
+                    }`}
                     required
                   >
                     <option value="">Pilih Produk</option>
@@ -1007,7 +1128,13 @@ const Savings = () => {
                       </option>
                     ))}
                   </select>
-                  {formData.memberId && !editingId && (
+                  {errors.productId && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center">
+                      <span className="mr-1">⚠️</span>
+                      {errors.productId}
+                    </p>
+                  )}
+                  {formData.memberId && !editingId && !errors.productId && (
                     <p className="mt-1 text-sm text-blue-600">
                       💡 Produk otomatis dipilih berdasarkan anggota yang
                       dipilih
@@ -1018,22 +1145,35 @@ const Savings = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      Periode Angsuran
+                      Periode Angsuran <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="number"
                       min="1"
                       value={formData.installmentPeriod}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setFormData({
                           ...formData,
                           installmentPeriod: parseInt(e.target.value),
-                        })
-                      }
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        });
+                        if (errors.installmentPeriod) {
+                          setErrors({ ...errors, installmentPeriod: "" });
+                        }
+                      }}
+                      className={`mt-1 block w-full rounded-md shadow-sm focus:ring-blue-500 ${
+                        errors.installmentPeriod
+                          ? "border-red-300 focus:border-red-500 bg-red-50"
+                          : "border-gray-300 focus:border-blue-500"
+                      }`}
                       required
                     />
-                    {lastPeriod > 0 && (
+                    {errors.installmentPeriod && (
+                      <p className="mt-1 text-sm text-red-600 flex items-center">
+                        <span className="mr-1">⚠️</span>
+                        {errors.installmentPeriod}
+                      </p>
+                    )}
+                    {lastPeriod > 0 && !errors.installmentPeriod && (
                       <p className="mt-1 text-sm text-gray-500">
                         Periode terakhir: {lastPeriod}, otomatis diisi periode
                         berikutnya
@@ -1043,22 +1183,35 @@ const Savings = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      Jumlah
+                      Jumlah <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="number"
                       min="0"
                       value={formData.amount}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setFormData({
                           ...formData,
                           amount: parseInt(e.target.value),
-                        })
-                      }
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        });
+                        if (errors.amount) {
+                          setErrors({ ...errors, amount: "" });
+                        }
+                      }}
+                      className={`mt-1 block w-full rounded-md shadow-sm focus:ring-blue-500 ${
+                        errors.amount
+                          ? "border-red-300 focus:border-red-500 bg-red-50"
+                          : "border-gray-300 focus:border-blue-500"
+                      }`}
                       required
                     />
-                    {formData.productId && !editingId && (
+                    {errors.amount && (
+                      <p className="mt-1 text-sm text-red-600 flex items-center">
+                        <span className="mr-1">⚠️</span>
+                        {errors.amount}
+                      </p>
+                    )}
+                    {formData.productId && !editingId && !errors.amount && (
                       <p className="mt-1 text-sm text-green-600">
                         💰 Jumlah otomatis diisi sesuai harga paket produk
                       </p>
@@ -1069,20 +1222,33 @@ const Savings = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      Tanggal
+                      Tanggal <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="date"
                       value={formData.savingsDate}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setFormData({
                           ...formData,
                           savingsDate: e.target.value,
-                        })
-                      }
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        });
+                        if (errors.savingsDate) {
+                          setErrors({ ...errors, savingsDate: "" });
+                        }
+                      }}
+                      className={`mt-1 block w-full rounded-md shadow-sm focus:ring-blue-500 ${
+                        errors.savingsDate
+                          ? "border-red-300 focus:border-red-500 bg-red-50"
+                          : "border-gray-300 focus:border-blue-500"
+                      }`}
                       required
                     />
+                    {errors.savingsDate && (
+                      <p className="mt-1 text-sm text-red-600 flex items-center">
+                        <span className="mr-1">⚠️</span>
+                        {errors.savingsDate}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -1136,16 +1302,39 @@ const Savings = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
                     Bukti Pembayaran
+                    {formData.type === "Setoran" && !editingId && (
+                      <span className="text-red-500">*</span>
+                    )}
                   </label>
                   <input
                     type="file"
-                    onChange={handleFileChange}
-                    accept="image/*"
-                    className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    onChange={(e) => {
+                      handleFileChange(e);
+                      if (errors.proofFile) {
+                        setErrors({ ...errors, proofFile: "" });
+                      }
+                    }}
+                    accept="image/*,.pdf"
+                    className={`mt-1 block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold hover:file:bg-blue-100 ${
+                      errors.proofFile
+                        ? "text-red-500 file:bg-red-50 file:text-red-700"
+                        : "text-gray-500 file:bg-blue-50 file:text-blue-700"
+                    }`}
                   />
-                  <p className="mt-1 text-sm text-gray-500">
-                    Maksimal 5MB, format gambar
-                  </p>
+                  {errors.proofFile && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center">
+                      <span className="mr-1">⚠️</span>
+                      {errors.proofFile}
+                    </p>
+                  )}
+                  {!errors.proofFile && (
+                    <p className="mt-1 text-sm text-gray-500">
+                      Maksimal 5MB, format gambar atau PDF
+                      {formData.type === "Setoran" && !editingId && (
+                        <span className="text-red-500 font-medium"> (Wajib untuk setoran baru)</span>
+                      )}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex justify-end space-x-3">
@@ -1155,15 +1344,27 @@ const Savings = () => {
                       setShowModal(false);
                       resetForm();
                     }}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                    disabled={isSubmitting}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Batal
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                    disabled={isSubmitting}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                   >
-                    Simpan
+                    {isSubmitting ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Menyimpan...
+                      </>
+                    ) : (
+                      "Simpan"
+                    )}
                   </button>
                 </div>
               </form>
