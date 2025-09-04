@@ -19,7 +19,7 @@ const Savings = () => {
     amount: "",
     savingsDate: format(new Date(), "yyyy-MM-dd"),
     type: "Setoran",
-    description: "",
+    description: "Simpanan bulanan periode 1",
     proofFile: null,
   });
 
@@ -154,6 +154,17 @@ const Savings = () => {
     originalSelection.memberId,
     originalSelection.productId,
   ]);
+
+  // Auto-update description when period changes (only for new entries)
+  useEffect(() => {
+    if (!editingId && formData.installmentPeriod) {
+      const defaultDesc = `Simpanan bulanan periode ${formData.installmentPeriod}`;
+      // Only update if user hasn't changed the description manually
+      if (!formData.description || formData.description.startsWith("Simpanan bulanan periode")) {
+        setFormData((prev) => ({ ...prev, description: defaultDesc }));
+      }
+    }
+  }, [formData.installmentPeriod, editingId, formData.description]);
 
   // Check for duplicate period in real-time
   useEffect(() => {
@@ -386,7 +397,7 @@ const Savings = () => {
       amount: "",
       savingsDate: format(new Date(), "yyyy-MM-dd"),
       type: "Setoran",
-      description: "",
+      description: "Simpanan bulanan periode 1", // Will auto-update based on period
       proofFile: null,
     });
     setLastPeriod(0);
