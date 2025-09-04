@@ -240,6 +240,12 @@ const Savings = () => {
       newErrors.savingsDate = "Tanggal harus diisi";
     }
     
+    // Check description (add some basic validation)
+    if (formData.description && formData.description.length > 500) {
+      console.log("🔥 DESCRIPTION LENGTH ERROR:", formData.description.length);
+      newErrors.description = "Keterangan tidak boleh lebih dari 500 karakter";
+    }
+    
     // Check minimum amount against product
     if (formData.productId && formData.amount) {
       const selectedProduct = products.find(p => p._id === formData.productId);
@@ -248,14 +254,16 @@ const Savings = () => {
       }
     }
     
-    // Check proof file for new "Setoran"
-    if (formData.type === "Setoran" && !editingId && !formData.proofFile) {
-      newErrors.proofFile = "Bukti pembayaran wajib untuk setoran baru";
-    }
-    
-    // Check file size
-    if (formData.proofFile && formData.proofFile.size > 5 * 1024 * 1024) {
-      newErrors.proofFile = "File tidak boleh lebih dari 5MB";
+    // IMPORTANT: Handle file validation properly
+    if (formData.type === "Setoran" && !editingId) {
+      // For new setoran, check if file is required
+      if (!formData.proofFile && !errors.proofFile) {
+        // Only show "required" error if no existing file error (like size/format)
+        newErrors.proofFile = "Bukti pembayaran wajib untuk setoran baru";
+      } else if (errors.proofFile) {
+        // Preserve existing file error (like file size/format error)
+        newErrors.proofFile = errors.proofFile;
+      }
     }
     
     return newErrors;
@@ -265,8 +273,8 @@ const Savings = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Clear previous errors
-    setErrors({});
+    // DON'T clear all errors - preserve existing file errors
+    // setErrors({}); // ❌ This was clearing file size errors!
     
     // Validate form
     const validationErrors = validateForm();
@@ -331,8 +339,24 @@ const Savings = () => {
         newErrors.amount = errorMessage;
       }
       
-      if (errorMessage.includes("bukti") || errorMessage.includes("upload")) {
+      if (errorMessage.includes("bukti") || errorMessage.includes("upload") || errorMessage.includes("file")) {
         newErrors.proofFile = errorMessage;
+      }
+      
+      if (errorMessage.includes("keterangan") || errorMessage.includes("description")) {
+        newErrors.description = errorMessage;
+      }
+      
+      if (errorMessage.includes("anggota") || errorMessage.includes("member")) {
+        newErrors.memberId = errorMessage;
+      }
+      
+      if (errorMessage.includes("produk") || errorMessage.includes("product")) {
+        newErrors.productId = errorMessage;
+      }
+      
+      if (errorMessage.includes("tanggal") || errorMessage.includes("date")) {
+        newErrors.savingsDate = errorMessage;
       }
       
       if (Object.keys(newErrors).length > 0) {
@@ -374,11 +398,51 @@ const Savings = () => {
   // Handle file upload
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (file && file.size > 5 * 1024 * 1024) {
-      toast.error("File tidak boleh lebih dari 5MB");
-      return;
+    
+    console.log("🔥 HANDLE FILE CHANGE TRIGGERED:", file ? file.name : "No file");
+    console.log("🔥 File size:", file ? file.size : "N/A");
+    
+    // Clear any existing file errors first
+    if (errors.proofFile) {
+      setErrors(prev => ({ ...prev, proofFile: "" }));
     }
-    setFormData({ ...formData, proofFile: file });
+    
+    if (file) {
+      // Check file size (5MB = 5 * 1024 * 1024 bytes)
+      if (file.size > 5 * 1024 * 1024) {
+        const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        const errorMessage = `File terlalu besar (${fileSizeMB}MB). Maksimal ukuran file adalah 5MB.`;
+        
+        console.log("🔥 FILE SIZE ERROR TRIGGERED:", errorMessage);
+        setErrors(prev => ({ ...prev, proofFile: errorMessage }));
+        toast.error(`❌ ${errorMessage}`);
+        
+        // Reset file input
+        e.target.value = '';
+        setFormData(prev => ({ ...prev, proofFile: null }));
+        return;
+      }
+      
+      // Check file type
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'application/pdf'];
+      if (!allowedTypes.includes(file.type)) {
+        const errorMessage = "Format file tidak didukung. Gunakan format JPG, PNG, GIF, atau PDF.";
+        
+        setErrors(prev => ({ ...prev, proofFile: errorMessage }));
+        toast.error(`❌ ${errorMessage}`);
+        
+        // Reset file input
+        e.target.value = '';
+        setFormData(prev => ({ ...prev, proofFile: null }));
+        return;
+      }
+      
+      // File is valid
+      setFormData(prev => ({ ...prev, proofFile: file }));
+      toast.success(`✅ File "${file.name}" berhasil dipilih`);
+    } else {
+      setFormData(prev => ({ ...prev, proofFile: null }));
+    }
   };
 
   // Handle approve
@@ -1274,12 +1338,32 @@ const Savings = () => {
                   </label>
                   <textarea
                     value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
+                    onChange={(e) => {
+                      setFormData({ ...formData, description: e.target.value });
+                      if (errors.description) {
+                        setErrors({ ...errors, description: "" });
+                      }
+                    }}
                     rows="3"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    maxLength="500"
+                    className={`mt-1 block w-full rounded-md shadow-sm focus:ring-blue-500 ${
+                      errors.description
+                        ? "border-red-300 focus:border-red-500 bg-red-50"
+                        : "border-gray-300 focus:border-blue-500"
+                    }`}
+                    placeholder="Masukkan keterangan tambahan (opsional)"
                   />
+                  {errors.description && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center">
+                      <span className="mr-1">⚠️</span>
+                      {errors.description}
+                    </p>
+                  )}
+                  {!errors.description && (
+                    <p className="mt-1 text-xs text-gray-500 text-right">
+                      {formData.description.length}/500 karakter
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -1310,9 +1394,7 @@ const Savings = () => {
                     type="file"
                     onChange={(e) => {
                       handleFileChange(e);
-                      if (errors.proofFile) {
-                        setErrors({ ...errors, proofFile: "" });
-                      }
+                      // Note: error clearing is already handled in handleFileChange
                     }}
                     accept="image/*,.pdf"
                     className={`mt-1 block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold hover:file:bg-blue-100 ${
@@ -1327,7 +1409,18 @@ const Savings = () => {
                       {errors.proofFile}
                     </p>
                   )}
-                  {!errors.proofFile && (
+                  {formData.proofFile && !errors.proofFile && (
+                    <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md">
+                      <p className="text-sm text-green-700 flex items-center">
+                        <span className="mr-1">✅</span>
+                        File dipilih: <strong className="ml-1">{formData.proofFile.name}</strong>
+                      </p>
+                      <p className="text-xs text-green-600">
+                        Ukuran: {(formData.proofFile.size / (1024 * 1024)).toFixed(2)}MB
+                      </p>
+                    </div>
+                  )}
+                  {!errors.proofFile && !formData.proofFile && (
                     <p className="mt-1 text-sm text-gray-500">
                       Maksimal 5MB, format gambar atau PDF
                       {formData.type === "Setoran" && !editingId && (
