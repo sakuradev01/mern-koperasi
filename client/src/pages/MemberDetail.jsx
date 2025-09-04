@@ -171,7 +171,8 @@ const MemberDetail = () => {
   const handleShowProof = (proofFile, period) => {
     if (proofFile && proofFile !== "0") {
       // File sudah berisi path lengkap, langsung pakai
-      const fileUrl = `http://localhost:5000/${proofFile}`;
+      // Use dynamic server URL from config instead of hardcoded localhost
+      const fileUrl = `${import.meta.env.VITE_API_URL || import.meta.env.VITE_SERVER_URL || "http://localhost:5000"}/${proofFile}`;
       
       console.log("Proof file:", proofFile); // Debug
       console.log("Generated URL:", fileUrl); // Debug

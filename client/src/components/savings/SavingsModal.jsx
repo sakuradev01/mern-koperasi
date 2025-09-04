@@ -8,6 +8,7 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [lastPeriod, setLastPeriod] = useState(0);
+  const [submitError, setSubmitError] = useState("");
   const originalSelectionRef = useRef({ memberId: "", productId: "" });
 
   const {
@@ -30,6 +31,9 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
 
   useEffect(() => {
     if (isOpen) {
+      // Clear any previous errors when modal opens
+      setSubmitError("");
+      
       fetchMembers();
       fetchProducts();
       if (savingsData) {
@@ -143,6 +147,9 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
 
   const onSubmit = async (data) => {
     console.log("🚀 Form submitted with data:", data);
+    
+    // Clear previous errors
+    setSubmitError("");
 
     // Additional validation before submit
     if (data.proofFile && data.proofFile[0]) {
@@ -152,7 +159,7 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
       const maxSize = 5 * 1024 * 1024; // 5MB
       if (file.size > maxSize) {
         console.log("❌ File too large in submit!");
-        alert("File terlalu besar! Maksimal ukuran file adalah 5MB.");
+        setSubmitError("File terlalu besar! Maksimal ukuran file adalah 5MB.");
         return;
       }
     }
@@ -189,7 +196,20 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
     } catch (error) {
       console.error("❌ Error saving savings:", error);
       console.error("❌ Error response:", error.response?.data);
-      alert(error.response?.data?.message || "Gagal menyimpan data");
+      
+      // Improved error handling with better UI feedback
+      const errorMessage = error.response?.data?.message || "Gagal menyimpan data";
+      
+      // Set error message to display in form
+      if (error.response?.status === 400) {
+        setSubmitError(`Validasi Error: ${errorMessage}. Silakan periksa kembali data yang Anda masukkan.`);
+      } else if (error.response?.status === 404) {
+        setSubmitError(`Data Tidak Ditemukan: ${errorMessage}`);
+      } else if (error.response?.status === 500) {
+        setSubmitError(`Server Error: ${errorMessage}. Silakan coba lagi atau hubungi administrator.`);
+      } else {
+        setSubmitError(`Error: ${errorMessage}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -213,6 +233,25 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {/* Error Display */}
+          {submitError && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <span className="text-red-400">❌</span>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">
+                    Terjadi Kesalahan
+                  </h3>
+                  <div className="mt-2 text-sm text-red-700">
+                    {submitError}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">

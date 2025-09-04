@@ -218,7 +218,22 @@ const Savings = () => {
       resetForm();
       fetchSavings();
     } catch (error) {
-      toast.error(error.response?.data?.message || "Gagal menyimpan data");
+      console.error("❌ Error saving savings:", error);
+      console.error("❌ Error response:", error.response?.data);
+      
+      // Improved error handling with better UI feedback
+      const errorMessage = error.response?.data?.message || "Gagal menyimpan data";
+      
+      // Show detailed validation errors if available
+      if (error.response?.status === 400) {
+        toast.error(`Validasi Error: ${errorMessage}. Silakan periksa kembali data yang Anda masukkan.`);
+      } else if (error.response?.status === 404) {
+        toast.error(`Data Tidak Ditemukan: ${errorMessage}`);
+      } else if (error.response?.status === 500) {
+        toast.error(`Server Error: ${errorMessage}. Silakan coba lagi atau hubungi administrator.`);
+      } else {
+        toast.error(`Error: ${errorMessage}`);
+      }
     }
   };
 
@@ -384,7 +399,8 @@ const Savings = () => {
   // Handle show proof
   const handleShowProof = (proofFile, saving) => {
     if (proofFile && proofFile !== "0") {
-      const fileUrl = `http://localhost:5000/${proofFile}`;
+      // Use dynamic server URL from config instead of hardcoded localhost
+      const fileUrl = `${API_URL}/${proofFile}`;
       
       setSelectedProof({
         file: proofFile,
