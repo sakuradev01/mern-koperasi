@@ -33,7 +33,7 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
     if (isOpen) {
       // Clear any previous errors when modal opens
       setSubmitError("");
-      
+
       fetchMembers();
       fetchProducts();
       if (savingsData) {
@@ -147,7 +147,7 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
 
   const onSubmit = async (data) => {
     console.log("🚀 Form submitted with data:", data);
-    
+
     // Clear previous errors
     setSubmitError("");
 
@@ -196,17 +196,22 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
     } catch (error) {
       console.error("❌ Error saving savings:", error);
       console.error("❌ Error response:", error.response?.data);
-      
+
       // Improved error handling with better UI feedback
-      const errorMessage = error.response?.data?.message || "Gagal menyimpan data";
-      
+      const errorMessage =
+        error.response?.data?.message || "Gagal menyimpan data";
+
       // Set error message to display in form
       if (error.response?.status === 400) {
-        setSubmitError(`Validasi Error: ${errorMessage}. Silakan periksa kembali data yang Anda masukkan.`);
+        setSubmitError(
+          `Validasi Error: ${errorMessage}. Silakan periksa kembali data yang Anda masukkan.`
+        );
       } else if (error.response?.status === 404) {
         setSubmitError(`Data Tidak Ditemukan: ${errorMessage}`);
       } else if (error.response?.status === 500) {
-        setSubmitError(`Server Error: ${errorMessage}. Silakan coba lagi atau hubungi administrator.`);
+        setSubmitError(
+          `Server Error: ${errorMessage}. Silakan coba lagi atau hubungi administrator.`
+        );
       } else {
         setSubmitError(`Error: ${errorMessage}`);
       }
@@ -244,9 +249,7 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
                   <h3 className="text-sm font-medium text-red-800">
                     Terjadi Kesalahan
                   </h3>
-                  <div className="mt-2 text-sm text-red-700">
-                    {submitError}
-                  </div>
+                  <div className="mt-2 text-sm text-red-700">{submitError}</div>
                 </div>
               </div>
             </div>

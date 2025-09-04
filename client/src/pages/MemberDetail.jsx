@@ -46,54 +46,64 @@ const MemberDetail = () => {
       // SIMPLE: Langsung query database berdasarkan UUID member
       if (memberData && memberData.uuid) {
         console.log("Fetching ALL savings for member UUID:", memberData.uuid); // Debug
-        
+
         // Query langsung ke database untuk semua savings dengan UUID ini
-        const response = await api.get(`/api/savings/member-by-uuid/${memberData.uuid}`);
+        const response = await api.get(
+          `/api/savings/member-by-uuid/${memberData.uuid}`
+        );
         console.log("Direct DB response:", response.data); // Debug
-        
+
         if (response.data && response.data.success && response.data.data) {
           const savingsArray = response.data.data.savings || [];
           console.log("Raw savings from DB:", savingsArray); // Debug
-          
+
           // Get product info untuk term duration
           const productInfo = memberData.product;
           const termDuration = productInfo?.termDuration || 12;
           const depositAmount = productInfo?.depositAmount || 0;
-          
+
           // Create map dari existing savings berdasarkan installment period
           const savingsMap = {};
-          savingsArray.forEach(saving => {
+          savingsArray.forEach((saving) => {
             // PERBAIKAN: Ambil SEMUA savings (Approved, Pending, Rejected) tipe Setoran
             if (saving.type === "Setoran") {
               savingsMap[saving.installmentPeriod] = saving;
             }
           });
-          
+
           console.log("Approved savings map:", savingsMap); // Debug
-          
+
           // Generate semua periode dari 1 sampai termDuration
           const convertedData = [];
           for (let period = 1; period <= termDuration; period++) {
             const existingSaving = savingsMap[period];
-            
+
             // Calculate date projection
             const currentDate = new Date();
-            const projectionDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + period, 1);
-            const dateProjection = projectionDate.toLocaleDateString('en-US', { 
-              month: 'long', 
-              year: 'numeric' 
+            const projectionDate = new Date(
+              currentDate.getFullYear(),
+              currentDate.getMonth() + period,
+              1
+            );
+            const dateProjection = projectionDate.toLocaleDateString("en-US", {
+              month: "long",
+              year: "numeric",
             });
-            
+
             convertedData.push({
               installment_period: period,
               projection: depositAmount.toString(),
               dateProjection: dateProjection,
-              realization: existingSaving ? existingSaving.amount.toString() : "0",
-              payment_proof: existingSaving ? (existingSaving.proofFile || "0") : "0",
-              status: existingSaving ? existingSaving.status : "Belum Bayar"
+              realization: existingSaving
+                ? existingSaving.amount.toString()
+                : "0",
+              payment_proof: existingSaving
+                ? existingSaving.proofFile || "0"
+                : "0",
+              status: existingSaving ? existingSaving.status : "Belum Bayar",
             });
           }
-          
+
           console.log("Final converted data:", convertedData); // Debug
           setSavingsData(convertedData);
         } else {
@@ -111,34 +121,34 @@ const MemberDetail = () => {
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
+      minimumFractionDigits: 0,
     }).format(amount);
   };
 
   const formatDate = (dateString) => {
     if (!dateString) return "-";
-    return new Date(dateString).toLocaleDateString('id-ID', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+    return new Date(dateString).toLocaleDateString("id-ID", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
   const getStatusBadge = (period) => {
     // Langsung gunakan status dari database, simple!
     const statusColors = {
-      "Approved": "bg-green-100 text-green-800",
-      "Pending": "bg-yellow-100 text-yellow-800", 
-      "Rejected": "bg-red-100 text-red-800",
-      "Belum Bayar": "bg-gray-100 text-gray-800"
+      Approved: "bg-green-100 text-green-800",
+      Pending: "bg-yellow-100 text-yellow-800",
+      Rejected: "bg-red-100 text-red-800",
+      "Belum Bayar": "bg-gray-100 text-gray-800",
     };
-    
+
     const status = period.status || "Belum Bayar";
     const colorClass = statusColors[status] || "bg-gray-100 text-gray-800";
-    
+
     // Tampilkan status sesuai database
     let displayText = status;
     if (status === "Approved") {
@@ -150,10 +160,14 @@ const MemberDetail = () => {
     } else {
       displayText = "⏳ Belum Bayar";
     }
-    
-    return <span className={`px-2 py-1 rounded-full text-xs font-medium ${colorClass}`}>
-      {displayText}
-    </span>;
+
+    return (
+      <span
+        className={`px-2 py-1 rounded-full text-xs font-medium ${colorClass}`}
+      >
+        {displayText}
+      </span>
+    );
   };
 
   const calculateTotalRealization = () => {
@@ -172,32 +186,36 @@ const MemberDetail = () => {
     if (proofFile && proofFile !== "0") {
       // File sudah berisi path lengkap, langsung pakai
       // Use dynamic server URL from config instead of hardcoded localhost
-      const fileUrl = `${import.meta.env.VITE_API_URL || import.meta.env.VITE_SERVER_URL || "http://localhost:5000"}/${proofFile}`;
-      
+      const fileUrl = `${
+        import.meta.env.VITE_API_URL ||
+        import.meta.env.VITE_SERVER_URL ||
+        "http://localhost:5000"
+      }/${proofFile}`;
+
       console.log("Proof file:", proofFile); // Debug
       console.log("Generated URL:", fileUrl); // Debug
-      
+
       setSelectedProof({
         file: proofFile,
         period: period,
-        url: fileUrl
+        url: fileUrl,
       });
       setShowProofModal(true);
     }
   };
 
   const getFileExtension = (filename) => {
-    if (!filename || typeof filename !== 'string') return '';
-    return filename.split('.').pop().toLowerCase();
+    if (!filename || typeof filename !== "string") return "";
+    return filename.split(".").pop().toLowerCase();
   };
 
   const isImageFile = (filename) => {
-    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
+    const imageExtensions = ["jpg", "jpeg", "png", "gif", "bmp", "webp"];
     return imageExtensions.includes(getFileExtension(filename));
   };
 
   const isPdfFile = (filename) => {
-    return getFileExtension(filename) === 'pdf';
+    return getFileExtension(filename) === "pdf";
   };
 
   if (loading) {
@@ -205,7 +223,9 @@ const MemberDetail = () => {
       <div className="flex items-center justify-center min-h-screen p-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 sm:h-32 sm:w-32 border-b-2 border-pink-600 mx-auto"></div>
-          <p className="mt-4 text-sm sm:text-base text-gray-600">🌸 Memuat data siswa...</p>
+          <p className="mt-4 text-sm sm:text-base text-gray-600">
+            🌸 Memuat data siswa...
+          </p>
         </div>
       </div>
     );
@@ -216,10 +236,12 @@ const MemberDetail = () => {
       <div className="flex items-center justify-center min-h-screen p-4">
         <div className="text-center">
           <div className="text-red-600 text-4xl sm:text-6xl mb-4">⚠️</div>
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2">Error</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2">
+            Error
+          </h2>
           <p className="text-sm sm:text-base text-red-600 mb-4">{error}</p>
           <button
-            onClick={() => navigate('/master/anggota')}
+            onClick={() => navigate("/master/anggota")}
             className="bg-pink-500 text-white px-4 py-2 rounded-lg hover:bg-pink-600 transition-colors"
           >
             ← Kembali ke Daftar Anggota
@@ -234,10 +256,14 @@ const MemberDetail = () => {
       <div className="flex items-center justify-center min-h-screen p-4">
         <div className="text-center">
           <div className="text-gray-400 text-4xl sm:text-6xl mb-4">👤</div>
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2">Data Tidak Ditemukan</h2>
-          <p className="text-sm sm:text-base text-gray-600 mb-4">Member dengan UUID {uuid} tidak ditemukan</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2">
+            Data Tidak Ditemukan
+          </h2>
+          <p className="text-sm sm:text-base text-gray-600 mb-4">
+            Member dengan UUID {uuid} tidak ditemukan
+          </p>
           <button
-            onClick={() => navigate('/master/anggota')}
+            onClick={() => navigate("/master/anggota")}
             className="bg-pink-500 text-white px-4 py-2 rounded-lg hover:bg-pink-600 transition-colors"
           >
             ← Kembali ke Daftar Anggota
@@ -252,7 +278,7 @@ const MemberDetail = () => {
       {/* Header dengan tombol kembali */}
       <div className="flex items-center mb-6">
         <button
-          onClick={() => navigate('/master/anggota')}
+          onClick={() => navigate("/master/anggota")}
           className="mr-4 p-2 text-pink-600 hover:text-pink-800 hover:bg-pink-50 rounded-lg transition-colors"
         >
           ← Kembali
@@ -270,31 +296,51 @@ const MemberDetail = () => {
               {memberData.name.charAt(0).toUpperCase()}
             </div>
             <div>
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">{memberData.name}</h2>
-              <p className="text-sm text-gray-600 font-mono">{memberData.uuid}</p>
-              <p className="text-sm text-gray-600">{memberData.user?.username}</p>
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
+                {memberData.name}
+              </h2>
+              <p className="text-sm text-gray-600 font-mono">
+                {memberData.uuid}
+              </p>
+              <p className="text-sm text-gray-600">
+                {memberData.user?.username}
+              </p>
             </div>
           </div>
-          
+
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-center">
             <div className="bg-white rounded-lg p-3 shadow-sm">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Gender</p>
+              <p className="text-xs text-gray-500 uppercase tracking-wide">
+                Gender
+              </p>
               <p className="text-lg font-semibold text-gray-900">
-                {memberData.gender === 'L' ? '👨 Laki-laki' : '👩 Perempuan'}
+                {memberData.gender === "L" ? "👨 Laki-laki" : "👩 Perempuan"}
               </p>
             </div>
             <div className="bg-white rounded-lg p-3 shadow-sm">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Kota</p>
-              <p className="text-lg font-semibold text-gray-900">{memberData.city || '-'}</p>
+              <p className="text-xs text-gray-500 uppercase tracking-wide">
+                Kota
+              </p>
+              <p className="text-lg font-semibold text-gray-900">
+                {memberData.city || "-"}
+              </p>
             </div>
             <div className="bg-white rounded-lg p-3 shadow-sm">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Telepon</p>
-              <p className="text-lg font-semibold text-gray-900">{memberData.phone || '-'}</p>
+              <p className="text-xs text-gray-500 uppercase tracking-wide">
+                Telepon
+              </p>
+              <p className="text-lg font-semibold text-gray-900">
+                {memberData.phone || "-"}
+              </p>
             </div>
             <div className="bg-white rounded-lg p-3 shadow-sm">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Produk</p>
+              <p className="text-xs text-gray-500 uppercase tracking-wide">
+                Produk
+              </p>
               <p className="text-sm font-semibold text-gray-900">
-                {memberData.product ? memberData.product.title : 'Belum dipilih'}
+                {memberData.product
+                  ? memberData.product.title
+                  : "Belum dipilih"}
               </p>
             </div>
           </div>
@@ -323,7 +369,9 @@ const MemberDetail = () => {
               <span className="text-2xl">💰</span>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Total Terealisasi</p>
+              <p className="text-sm font-medium text-gray-500">
+                Total Terealisasi
+              </p>
               <p className="text-2xl font-bold text-green-600">
                 {formatCurrency(calculateTotalRealization())}
               </p>
@@ -339,9 +387,14 @@ const MemberDetail = () => {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500">Progress</p>
               <p className="text-2xl font-bold text-purple-600">
-                {calculateTotalProjection() > 0 
-                  ? Math.round((calculateTotalRealization() / calculateTotalProjection()) * 100)
-                  : 0}%
+                {calculateTotalProjection() > 0
+                  ? Math.round(
+                      (calculateTotalRealization() /
+                        calculateTotalProjection()) *
+                        100
+                    )
+                  : 0}
+                %
               </p>
             </div>
           </div>
@@ -351,7 +404,9 @@ const MemberDetail = () => {
       {/* Tabel Tabungan */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 bg-gradient-to-r from-pink-50 to-rose-50 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">📋 Riwayat Tabungan</h3>
+          <h3 className="text-lg font-semibold text-gray-900">
+            📋 Riwayat Tabungan
+          </h3>
           <p className="text-sm text-gray-600">Detail pembayaran per periode</p>
         </div>
 
@@ -382,7 +437,10 @@ const MemberDetail = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {savingsData.length > 0 ? (
                 savingsData.map((period, index) => (
-                  <tr key={index} className="hover:bg-gray-50 transition-colors">
+                  <tr
+                    key={index}
+                    className="hover:bg-gray-50 transition-colors"
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="w-8 h-8 bg-pink-100 rounded-full flex items-center justify-center text-pink-600 font-semibold text-sm mr-3">
@@ -394,7 +452,7 @@ const MemberDetail = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {period.dateProjection || '-'}
+                      {period.dateProjection || "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-blue-600">
                       {formatCurrency(parseInt(period.projection) || 0)}
@@ -405,7 +463,12 @@ const MemberDetail = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {period.payment_proof && period.payment_proof !== "0" ? (
                         <button
-                          onClick={() => handleShowProof(period.payment_proof, period.installment_period)}
+                          onClick={() =>
+                            handleShowProof(
+                              period.payment_proof,
+                              period.installment_period
+                            )
+                          }
                           className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 hover:bg-green-200 transition-colors cursor-pointer"
                         >
                           👁️ Lihat Bukti
@@ -426,8 +489,13 @@ const MemberDetail = () => {
                   <td colSpan="6" className="px-6 py-12 text-center">
                     <div className="text-gray-400">
                       <span className="text-4xl mb-4 block">📊</span>
-                      <p className="text-lg font-medium">Belum Ada Data Tabungan</p>
-                      <p className="text-sm">Siswa belum memiliki riwayat tabungan atau belum memilih produk simpanan</p>
+                      <p className="text-lg font-medium">
+                        Belum Ada Data Tabungan
+                      </p>
+                      <p className="text-sm">
+                        Siswa belum memiliki riwayat tabungan atau belum memilih
+                        produk simpanan
+                      </p>
                     </div>
                   </td>
                 </tr>
@@ -440,19 +508,30 @@ const MemberDetail = () => {
       {/* Progress Bar */}
       {savingsData.length > 0 && (
         <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">📈 Progress Keseluruhan</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            📈 Progress Keseluruhan
+          </h3>
           <div className="w-full bg-gray-200 rounded-full h-4">
-            <div 
+            <div
               className="bg-gradient-to-r from-pink-500 to-rose-500 h-4 rounded-full transition-all duration-500"
-              style={{ 
-                width: `${calculateTotalProjection() > 0 
-                  ? Math.min((calculateTotalRealization() / calculateTotalProjection()) * 100, 100)
-                  : 0}%` 
+              style={{
+                width: `${
+                  calculateTotalProjection() > 0
+                    ? Math.min(
+                        (calculateTotalRealization() /
+                          calculateTotalProjection()) *
+                          100,
+                        100
+                      )
+                    : 0
+                }%`,
               }}
             ></div>
           </div>
           <div className="flex justify-between text-sm text-gray-600 mt-2">
-            <span>Terealisasi: {formatCurrency(calculateTotalRealization())}</span>
+            <span>
+              Terealisasi: {formatCurrency(calculateTotalRealization())}
+            </span>
             <span>Target: {formatCurrency(calculateTotalProjection())}</span>
           </div>
         </div>
@@ -486,11 +565,11 @@ const MemberDetail = () => {
                       alt={`Bukti pembayaran periode ${selectedProof.period}`}
                       className="max-w-full max-h-[60vh] mx-auto rounded-lg shadow-lg"
                       onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.nextSibling.style.display = 'block';
+                        e.target.style.display = "none";
+                        e.target.nextSibling.style.display = "block";
                       }}
                     />
-                    <div style={{display: 'none'}} className="text-red-500">
+                    <div style={{ display: "none" }} className="text-red-500">
                       ❌ Gagal memuat gambar
                     </div>
                     <p className="text-sm text-gray-600">
@@ -528,7 +607,8 @@ const MemberDetail = () => {
                       📁 {selectedProof.file}
                     </p>
                     <p className="text-sm text-gray-500">
-                      File ini tidak dapat ditampilkan di browser. Silakan download untuk melihat.
+                      File ini tidak dapat ditampilkan di browser. Silakan
+                      download untuk melihat.
                     </p>
                     <a
                       href={selectedProof.url}

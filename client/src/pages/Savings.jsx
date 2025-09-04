@@ -42,9 +42,12 @@ const Savings = () => {
   const fetchSavings = async (page = 1, limit = 100) => {
     try {
       const token = localStorage.getItem("token");
-      const response = await axios.get(`${API_URL}/api/savings?page=${page}&limit=${limit}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await axios.get(
+        `${API_URL}/api/savings?page=${page}&limit=${limit}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       const data =
         response.data?.data?.savings ||
         response.data?.savings ||
@@ -99,11 +102,16 @@ const Savings = () => {
   useEffect(() => {
     if (formData.memberId && !editingId) {
       // Only auto-fill when creating new savings (not editing)
-      const selectedMember = members.find(member => member._id === formData.memberId);
+      const selectedMember = members.find(
+        (member) => member._id === formData.memberId
+      );
       if (selectedMember && selectedMember.productId) {
-        setFormData(prev => ({ ...prev, productId: selectedMember.productId }));
+        setFormData((prev) => ({
+          ...prev,
+          productId: selectedMember.productId,
+        }));
       } else if (selectedMember && !selectedMember.productId) {
-        setFormData(prev => ({ ...prev, productId: "" }));
+        setFormData((prev) => ({ ...prev, productId: "" }));
       }
     }
   }, [formData.memberId, members, editingId]);
@@ -112,9 +120,14 @@ const Savings = () => {
   useEffect(() => {
     if (formData.productId && !editingId) {
       // Only auto-fill when creating new savings (not editing)
-      const selectedProduct = products.find(product => product._id === formData.productId);
+      const selectedProduct = products.find(
+        (product) => product._id === formData.productId
+      );
       if (selectedProduct && selectedProduct.depositAmount) {
-        setFormData(prev => ({ ...prev, amount: selectedProduct.depositAmount }));
+        setFormData((prev) => ({
+          ...prev,
+          amount: selectedProduct.depositAmount,
+        }));
       }
     }
   }, [formData.productId, products, editingId]);
@@ -220,17 +233,22 @@ const Savings = () => {
     } catch (error) {
       console.error("❌ Error saving savings:", error);
       console.error("❌ Error response:", error.response?.data);
-      
+
       // Improved error handling with better UI feedback
-      const errorMessage = error.response?.data?.message || "Gagal menyimpan data";
-      
+      const errorMessage =
+        error.response?.data?.message || "Gagal menyimpan data";
+
       // Show detailed validation errors if available
       if (error.response?.status === 400) {
-        toast.error(`Validasi Error: ${errorMessage}. Silakan periksa kembali data yang Anda masukkan.`);
+        toast.error(
+          `Validasi Error: ${errorMessage}. Silakan periksa kembali data yang Anda masukkan.`
+        );
       } else if (error.response?.status === 404) {
         toast.error(`Data Tidak Ditemukan: ${errorMessage}`);
       } else if (error.response?.status === 500) {
-        toast.error(`Server Error: ${errorMessage}. Silakan coba lagi atau hubungi administrator.`);
+        toast.error(
+          `Server Error: ${errorMessage}. Silakan coba lagi atau hubungi administrator.`
+        );
       } else {
         toast.error(`Error: ${errorMessage}`);
       }
@@ -269,7 +287,7 @@ const Savings = () => {
         const token = localStorage.getItem("token");
         const formData = new FormData();
         formData.append("status", "Approved");
-        
+
         await axios.put(`${API_URL}/api/savings/${id}`, formData, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -279,7 +297,9 @@ const Savings = () => {
         toast.success("Simpanan berhasil disetujui");
         fetchSavings();
       } catch (error) {
-        toast.error(error.response?.data?.message || "Gagal menyetujui simpanan");
+        toast.error(
+          error.response?.data?.message || "Gagal menyetujui simpanan"
+        );
       }
     }
   };
@@ -366,9 +386,10 @@ const Savings = () => {
     const memberName = getMemberName(saving.memberId).toLowerCase();
     const matchesSearch = memberName.includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "" || saving.status === statusFilter;
-    const matchesDate = dateFilter === "" || 
+    const matchesDate =
+      dateFilter === "" ||
       format(new Date(saving.savingsDate), "yyyy-MM-dd") === dateFilter;
-    
+
     return matchesSearch && matchesStatus && matchesDate;
   });
 
@@ -381,14 +402,14 @@ const Savings = () => {
   // Reset page when filters change
   const handleFilterChange = (filterType, value) => {
     setCurrentPage(1);
-    switch(filterType) {
-      case 'search':
+    switch (filterType) {
+      case "search":
         setSearchTerm(value);
         break;
-      case 'status':
+      case "status":
         setStatusFilter(value);
         break;
-      case 'date':
+      case "date":
         setDateFilter(value);
         break;
       default:
@@ -401,11 +422,11 @@ const Savings = () => {
     if (proofFile && proofFile !== "0") {
       // Use dynamic server URL from config instead of hardcoded localhost
       const fileUrl = `${API_URL}/${proofFile}`;
-      
+
       setSelectedProof({
         file: proofFile,
         saving: saving,
-        url: fileUrl
+        url: fileUrl,
       });
       setShowProofModal(true);
     }
@@ -413,17 +434,17 @@ const Savings = () => {
 
   // File type detection
   const getFileExtension = (filename) => {
-    if (!filename || typeof filename !== 'string') return '';
-    return filename.split('.').pop().toLowerCase();
+    if (!filename || typeof filename !== "string") return "";
+    return filename.split(".").pop().toLowerCase();
   };
 
   const isImageFile = (filename) => {
-    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
+    const imageExtensions = ["jpg", "jpeg", "png", "gif", "bmp", "webp"];
     return imageExtensions.includes(getFileExtension(filename));
   };
 
   const isPdfFile = (filename) => {
-    return getFileExtension(filename) === 'pdf';
+    return getFileExtension(filename) === "pdf";
   };
 
   if (loading) {
@@ -501,7 +522,7 @@ const Savings = () => {
               type="text"
               placeholder="Masukkan nama anggota..."
               value={searchTerm}
-              onChange={(e) => handleFilterChange('search', e.target.value)}
+              onChange={(e) => handleFilterChange("search", e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
             />
           </div>
@@ -513,7 +534,7 @@ const Savings = () => {
             </label>
             <select
               value={statusFilter}
-              onChange={(e) => handleFilterChange('status', e.target.value)}
+              onChange={(e) => handleFilterChange("status", e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
             >
               <option value="">Semua Status</option>
@@ -531,7 +552,7 @@ const Savings = () => {
             <input
               type="date"
               value={dateFilter}
-              onChange={(e) => handleFilterChange('date', e.target.value)}
+              onChange={(e) => handleFilterChange("date", e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
             />
           </div>
@@ -555,7 +576,8 @@ const Savings = () => {
         {/* Results Info */}
         <div className="mt-4 text-sm text-gray-600">
           Menampilkan {currentSavings.length} dari {filteredSavings.length} data
-          {filteredSavings.length !== savings.length && ` (difilter dari ${savings.length} total)`}
+          {filteredSavings.length !== savings.length &&
+            ` (difilter dari ${savings.length} total)`}
         </div>
       </div>
 
@@ -597,7 +619,10 @@ const Savings = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {currentSavings.length > 0 ? (
                 currentSavings.map((saving) => (
-                  <tr key={saving._id} className="hover:bg-pink-50 transition-colors">
+                  <tr
+                    key={saving._id}
+                    className="hover:bg-pink-50 transition-colors"
+                  >
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {format(new Date(saving.savingsDate), "dd MMM yyyy", {
                         locale: id,
@@ -638,7 +663,9 @@ const Savings = () => {
                     <td className="hidden lg:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {saving.proofFile && saving.proofFile !== "0" ? (
                         <button
-                          onClick={() => handleShowProof(saving.proofFile, saving)}
+                          onClick={() =>
+                            handleShowProof(saving.proofFile, saving)
+                          }
                           className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 hover:bg-green-200 transition-colors cursor-pointer"
                         >
                           👁️ Lihat Bukti
@@ -682,8 +709,8 @@ const Savings = () => {
                       <span className="text-4xl mb-4 block">📊</span>
                       <p className="text-lg font-medium">Tidak Ada Data</p>
                       <p className="text-sm">
-                        {searchTerm || statusFilter || dateFilter 
-                          ? "Tidak ada data yang sesuai dengan filter" 
+                        {searchTerm || statusFilter || dateFilter
+                          ? "Tidak ada data yang sesuai dengan filter"
                           : "Belum ada data simpanan"}
                       </p>
                     </div>
@@ -700,20 +727,24 @@ const Savings = () => {
         <div className="bg-white rounded-lg shadow border border-pink-100 p-4 mt-6">
           <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
             <div className="text-sm text-gray-600">
-              Menampilkan {startIndex + 1}-{Math.min(endIndex, filteredSavings.length)} dari {filteredSavings.length} data
+              Menampilkan {startIndex + 1}-
+              {Math.min(endIndex, filteredSavings.length)} dari{" "}
+              {filteredSavings.length} data
               {totalPages > 1 && ` (Halaman ${currentPage} dari ${totalPages})`}
             </div>
-            
+
             {totalPages > 1 && (
               <div className="flex space-x-1">
                 {/* Previous Button */}
                 <button
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(prev - 1, 1))
+                  }
                   disabled={currentPage === 1}
                   className={`px-3 py-2 rounded-md text-sm font-medium ${
                     currentPage === 1
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-pink-500 text-white hover:bg-pink-600'
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                      : "bg-pink-500 text-white hover:bg-pink-600"
                   } transition-colors`}
                 >
                   ← Prev
@@ -728,7 +759,9 @@ const Savings = () => {
                     >
                       1
                     </button>
-                    {currentPage > 4 && <span className="px-2 py-2 text-gray-500">...</span>}
+                    {currentPage > 4 && (
+                      <span className="px-2 py-2 text-gray-500">...</span>
+                    )}
                   </>
                 )}
 
@@ -751,8 +784,8 @@ const Savings = () => {
                       onClick={() => setCurrentPage(pageNum)}
                       className={`px-3 py-2 rounded-md text-sm font-medium ${
                         currentPage === pageNum
-                          ? 'bg-pink-500 text-white shadow-md'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          ? "bg-pink-500 text-white shadow-md"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                       } transition-colors`}
                     >
                       {pageNum}
@@ -763,7 +796,9 @@ const Savings = () => {
                 {/* Last page */}
                 {currentPage < totalPages - 2 && totalPages > 5 && (
                   <>
-                    {currentPage < totalPages - 3 && <span className="px-2 py-2 text-gray-500">...</span>}
+                    {currentPage < totalPages - 3 && (
+                      <span className="px-2 py-2 text-gray-500">...</span>
+                    )}
                     <button
                       onClick={() => setCurrentPage(totalPages)}
                       className="px-3 py-2 rounded-md text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
@@ -775,12 +810,14 @@ const Savings = () => {
 
                 {/* Next Button */}
                 <button
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                  }
                   disabled={currentPage === totalPages}
                   className={`px-3 py-2 rounded-md text-sm font-medium ${
                     currentPage === totalPages
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-pink-500 text-white hover:bg-pink-600'
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                      : "bg-pink-500 text-white hover:bg-pink-600"
                   } transition-colors`}
                 >
                   Next →
@@ -802,9 +839,13 @@ const Savings = () => {
                   📄 Bukti Pembayaran
                 </h3>
                 <p className="text-sm text-gray-600">
-                  {getMemberName(selectedProof.saving.memberId)} - 
-                  {formatCurrency(selectedProof.saving.amount)} - 
-                  {format(new Date(selectedProof.saving.savingsDate), "dd MMM yyyy", { locale: id })}
+                  {getMemberName(selectedProof.saving.memberId)} -
+                  {formatCurrency(selectedProof.saving.amount)} -
+                  {format(
+                    new Date(selectedProof.saving.savingsDate),
+                    "dd MMM yyyy",
+                    { locale: id }
+                  )}
                 </p>
               </div>
               <button
@@ -823,14 +864,16 @@ const Savings = () => {
                   <div className="space-y-4">
                     <img
                       src={selectedProof.url}
-                      alt={`Bukti pembayaran ${getMemberName(selectedProof.saving.memberId)}`}
+                      alt={`Bukti pembayaran ${getMemberName(
+                        selectedProof.saving.memberId
+                      )}`}
                       className="max-w-full max-h-[60vh] mx-auto rounded-lg shadow-lg"
                       onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.nextSibling.style.display = 'block';
+                        e.target.style.display = "none";
+                        e.target.nextSibling.style.display = "block";
                       }}
                     />
-                    <div style={{display: 'none'}} className="text-red-500">
+                    <div style={{ display: "none" }} className="text-red-500">
                       ❌ Gagal memuat gambar
                     </div>
                     <p className="text-sm text-gray-600">
@@ -843,7 +886,9 @@ const Savings = () => {
                     <iframe
                       src={selectedProof.url}
                       className="w-full h-[60vh] border rounded-lg"
-                      title={`Bukti pembayaran ${getMemberName(selectedProof.saving.memberId)}`}
+                      title={`Bukti pembayaran ${getMemberName(
+                        selectedProof.saving.memberId
+                      )}`}
                     />
                     <p className="text-sm text-gray-600">
                       📁 File: {selectedProof.file}
@@ -868,7 +913,8 @@ const Savings = () => {
                       📁 {selectedProof.file}
                     </p>
                     <p className="text-sm text-gray-500">
-                      File ini tidak dapat ditampilkan di browser. Silakan download untuk melihat.
+                      File ini tidak dapat ditampilkan di browser. Silakan
+                      download untuk melihat.
                     </p>
                     <a
                       href={selectedProof.url}
@@ -921,7 +967,10 @@ const Savings = () => {
                     <option value="">Pilih Anggota</option>
                     {members.map((member) => (
                       <option key={member._id} value={member._id}>
-                        {member.uuid} - {member.name} {member.product ? `(${member.product.title})` : '(Belum pilih produk)'}
+                        {member.uuid} - {member.name}{" "}
+                        {member.product
+                          ? `(${member.product.title})`
+                          : "(Belum pilih produk)"}
                       </option>
                     ))}
                   </select>
@@ -945,13 +994,15 @@ const Savings = () => {
                     <option value="">Pilih Produk</option>
                     {products.map((product) => (
                       <option key={product._id} value={product._id}>
-                        {product.title} - Min: {formatCurrency(product.depositAmount)}
+                        {product.title} - Min:{" "}
+                        {formatCurrency(product.depositAmount)}
                       </option>
                     ))}
                   </select>
                   {formData.memberId && !editingId && (
                     <p className="mt-1 text-sm text-blue-600">
-                      💡 Produk otomatis dipilih berdasarkan anggota yang dipilih
+                      💡 Produk otomatis dipilih berdasarkan anggota yang
+                      dipilih
                     </p>
                   )}
                 </div>
