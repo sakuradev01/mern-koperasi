@@ -62,13 +62,13 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
     console.log("🔍 memberId:", memberId);
     console.log("🔍 savingsData:", savingsData);
     console.log("🔍 members length:", members.length);
-    
+
     if (memberId && !savingsData) {
       // Only auto-fill when creating new savings (not editing)
-      const selectedMember = members.find(member => member._id === memberId);
+      const selectedMember = members.find((member) => member._id === memberId);
       console.log("🔍 Found selected member:", selectedMember);
       console.log("🔍 Member productId:", selectedMember?.productId);
-      
+
       if (selectedMember && selectedMember.productId) {
         console.log("✅ Auto-filling productId:", selectedMember.productId);
         setValue("productId", selectedMember.productId);
@@ -94,7 +94,7 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
       const membersData = response.data.data || response.data.members || [];
       console.log("🔍 All members data:", membersData);
       // Check specifically for Puspita
-      const puspita = membersData.find(m => m.uuid === "JPSB37142");
+      const puspita = membersData.find((m) => m.uuid === "JPSB37142");
       console.log("🔍 Puspita data:", puspita);
       setMembers(membersData);
     } catch (error) {
@@ -113,7 +113,9 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
 
   const checkLastInstallmentPeriod = async () => {
     try {
-      const response = await api.get(`/api/savings/check-period/${memberId}/${productId}`);
+      const response = await api.get(
+        `/api/savings/check-period/${memberId}/${productId}`
+      );
       const last = response.data.data.lastPeriod || 0;
       setLastPeriod(last);
 
@@ -140,6 +142,21 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
   };
 
   const onSubmit = async (data) => {
+    console.log("🚀 Form submitted with data:", data);
+
+    // Additional validation before submit
+    if (data.proofFile && data.proofFile[0]) {
+      const file = data.proofFile[0];
+      console.log("🔍 File in submit:", file.name, "Size:", file.size);
+
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        console.log("❌ File too large in submit!");
+        alert("File terlalu besar! Maksimal ukuran file adalah 5MB.");
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const formData = new FormData();
@@ -147,22 +164,31 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
       // Append all form data
       Object.keys(data).forEach((key) => {
         if (key === "proofFile" && data[key] && data[key][0]) {
+          console.log(
+            "📎 Appending file:",
+            data[key][0].name,
+            "Size:",
+            data[key][0].size
+          );
           formData.append(key, data[key][0]);
         } else if (data[key] !== undefined && data[key] !== null) {
           formData.append(key, data[key]);
         }
       });
 
+      console.log("📤 Sending request to server...");
       if (savingsData) {
         await api.put(`/api/savings/${savingsData._id}`, formData);
       } else {
         await api.post("/api/savings", formData);
       }
 
+      console.log("✅ Request successful!");
       onSuccess();
       onClose();
     } catch (error) {
-      console.error("Error saving savings:", error);
+      console.error("❌ Error saving savings:", error);
+      console.error("❌ Error response:", error.response?.data);
       alert(error.response?.data?.message || "Gagal menyimpan data");
     } finally {
       setLoading(false);
@@ -239,7 +265,10 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
               <option value="">Pilih Anggota</option>
               {members.map((member) => (
                 <option key={member._id} value={member._id}>
-                  {member.uuid} - {member.name} {member.product ? `(${member.product.title})` : '(Belum pilih produk)'}
+                  {member.uuid} - {member.name}{" "}
+                  {member.product
+                    ? `(${member.product.title})`
+                    : "(Belum pilih produk)"}
                 </option>
               ))}
             </select>
@@ -261,7 +290,8 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
               <option value="">Pilih Produk</option>
               {products.map((product) => (
                 <option key={product._id} value={product._id}>
-                  {product.title} - Min: Rp {product.depositAmount.toLocaleString('id-ID')}
+                  {product.title} - Min: Rp{" "}
+                  {product.depositAmount.toLocaleString("id-ID")}
                 </option>
               ))}
             </select>
@@ -332,7 +362,8 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
             />
             {lastPeriod > 0 && (
               <p className="text-sm text-blue-600 mt-1">
-                💡 Periode terakhir: {lastPeriod}, otomatis diisi periode berikutnya ({lastPeriod + 1})
+                💡 Periode terakhir: {lastPeriod}, otomatis diisi periode
+                berikutnya ({lastPeriod + 1})
               </p>
             )}
             {lastPeriod === 0 && memberId && productId && (
@@ -370,15 +401,101 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
             </label>
             <input
               type="file"
-              {...register("proofFile")}
+              {...register("proofFile", {
+                onChange: (e) => {
+                  console.log("🔍 File input onChange triggered via register");
+                  // Immediate validation on file change
+                  const file = e.target.files[0];
+                  if (file) {
+                    console.log(
+                      "🔍 File selected:",
+                      file.name,
+                      "Size:",
+                      file.size,
+                      "bytes"
+                    );
+                    const maxSize = 5 * 1024 * 1024; // 5MB
+                    console.log("🔍 Max size:", maxSize, "bytes");
+
+                    if (file.size > maxSize) {
+                      console.log("❌ File too large!");
+                      alert(
+                        "File terlalu besar! Maksimal ukuran file adalah 5MB."
+                      );
+                      e.target.value = ""; // Clear the input
+                      return false;
+                    }
+
+                    const allowedTypes = [
+                      "image/jpeg",
+                      "image/jpg",
+                      "image/png",
+                      "image/gif",
+                      "application/pdf",
+                    ];
+                    console.log("🔍 File type:", file.type);
+                    if (!allowedTypes.includes(file.type)) {
+                      console.log("❌ Invalid file type!");
+                      alert(
+                        "Hanya file gambar (JPG, PNG, GIF) atau PDF yang diperbolehkan."
+                      );
+                      e.target.value = ""; // Clear the input
+                      return false;
+                    }
+
+                    console.log("✅ File validation passed");
+                  } else {
+                    console.log("🔍 No file selected");
+                  }
+                },
+                validate: {
+                  fileSize: (files) => {
+                    console.log("🔍 Validating file size:", files);
+                    if (!files || !files[0]) return true; // No file is okay
+                    const file = files[0];
+                    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+                    if (file.size > maxSize) {
+                      console.log("❌ File size validation failed!");
+                      return "File terlalu besar. Maksimal ukuran file adalah 5MB.";
+                    }
+                    return true;
+                  },
+                  fileType: (files) => {
+                    console.log("🔍 Validating file type:", files);
+                    if (!files || !files[0]) return true; // No file is okay
+                    const file = files[0];
+                    const allowedTypes = [
+                      "image/jpeg",
+                      "image/jpg",
+                      "image/png",
+                      "image/gif",
+                      "application/pdf",
+                    ];
+                    if (!allowedTypes.includes(file.type)) {
+                      console.log("❌ File type validation failed!");
+                      return "Hanya file gambar (JPG, PNG, GIF) atau PDF yang diperbolehkan.";
+                    }
+                    return true;
+                  },
+                },
+              })}
               accept="image/*,.pdf"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            {errors.proofFile && (
+              <p className="text-red-500 text-sm mt-1">
+                {errors.proofFile.message}
+              </p>
+            )}
             {savingsData?.proofFile && (
               <p className="text-sm text-gray-500 mt-1">
                 File saat ini: {savingsData.proofFile}
               </p>
             )}
+            <p className="text-sm text-gray-500 mt-1">
+              Maksimal ukuran file: 5MB. Format yang diperbolehkan: JPG, PNG,
+              GIF, PDF
+            </p>
           </div>
 
           <div className="flex justify-end space-x-3 pt-4">
