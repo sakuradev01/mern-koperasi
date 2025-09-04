@@ -420,13 +420,16 @@ const Savings = () => {
   // Handle show proof
   const handleShowProof = (proofFile, saving) => {
     if (proofFile && proofFile !== "0") {
-      // Use dynamic server URL from config instead of hardcoded localhost
-      const fileUrl = `${API_URL}/${proofFile}`;
+      // Primary: direct /uploads (served by Nginx if configured)
+      const primaryUrl = `${API_URL}/${proofFile}`;
+      // Fallback: proxy via backend /api/uploads (always proxied by Nginx)
+      const fallbackUrl = `${API_URL}/api/${proofFile}`;
 
       setSelectedProof({
         file: proofFile,
         saving: saving,
-        url: fileUrl,
+        url: primaryUrl,
+        fallbackUrl,
       });
       setShowProofModal(true);
     }
@@ -869,8 +872,13 @@ const Savings = () => {
                       )}`}
                       className="max-w-full max-h-[60vh] mx-auto rounded-lg shadow-lg"
                       onError={(e) => {
-                        e.target.style.display = "none";
-                        e.target.nextSibling.style.display = "block";
+                        // Try fallback URL once if primary fails
+                        if (selectedProof.fallbackUrl && e.currentTarget.src !== selectedProof.fallbackUrl) {
+                          e.currentTarget.src = selectedProof.fallbackUrl;
+                        } else {
+                          e.currentTarget.style.display = "none";
+                          e.currentTarget.nextSibling.style.display = "block";
+                        }
                       }}
                     />
                     <div style={{ display: "none" }} className="text-red-500">

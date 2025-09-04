@@ -78,6 +78,9 @@ app.use("/uploads", (req, res, next) => {
   next();
 }, express.static("uploads")); // Serve uploads folder with CORS
 
+// Also expose uploads under /api to pass through Nginx reverse proxy
+app.use("/api/uploads", express.static("uploads"));
+
 app.use(cookieParser());
 
 import Routes from "./routes/index.js";

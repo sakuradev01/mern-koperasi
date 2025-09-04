@@ -184,21 +184,24 @@ const MemberDetail = () => {
 
   const handleShowProof = (proofFile, period) => {
     if (proofFile && proofFile !== "0") {
-      // File sudah berisi path lengkap, langsung pakai
-      // Use dynamic server URL from config instead of hardcoded localhost
-      const fileUrl = `${
+      const baseApi =
         import.meta.env.VITE_API_URL ||
         import.meta.env.VITE_SERVER_URL ||
-        "http://localhost:5000"
-      }/${proofFile}`;
+        "http://localhost:5000";
+
+      // Primary and fallback URLs
+      const primaryUrl = `${baseApi}/${proofFile}`;
+      const fallbackUrl = `${baseApi}/api/${proofFile}`;
 
       console.log("Proof file:", proofFile); // Debug
-      console.log("Generated URL:", fileUrl); // Debug
+      console.log("Generated URL primary:", primaryUrl); // Debug
+      console.log("Generated URL fallback:", fallbackUrl); // Debug
 
       setSelectedProof({
         file: proofFile,
         period: period,
-        url: fileUrl,
+        url: primaryUrl,
+        fallbackUrl,
       });
       setShowProofModal(true);
     }
@@ -565,8 +568,13 @@ const MemberDetail = () => {
                       alt={`Bukti pembayaran periode ${selectedProof.period}`}
                       className="max-w-full max-h-[60vh] mx-auto rounded-lg shadow-lg"
                       onError={(e) => {
-                        e.target.style.display = "none";
-                        e.target.nextSibling.style.display = "block";
+                        // Try fallback URL once if primary fails
+                        if (selectedProof.fallbackUrl && e.currentTarget.src !== selectedProof.fallbackUrl) {
+                          e.currentTarget.src = selectedProof.fallbackUrl;
+                        } else {
+                          e.currentTarget.style.display = "none";
+                          e.currentTarget.nextSibling.style.display = "block";
+                        }
                       }}
                     />
                     <div style={{ display: "none" }} className="text-red-500">
