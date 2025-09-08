@@ -1213,8 +1213,11 @@ const Savings = () => {
                         setErrors({ ...errors, productId: "" });
                       }
                     }}
+                    disabled={!editingId && formData.memberId && formData.productId} // 🔒 Lock setelah auto-fill
                     className={`mt-1 block w-full rounded-md shadow-sm focus:ring-blue-500 ${
-                      errors.productId
+                      !editingId && formData.memberId && formData.productId
+                        ? "bg-gray-100 border-gray-300 text-gray-600 cursor-not-allowed" // 🔒 Style locked
+                        : errors.productId
                         ? "border-red-300 focus:border-red-500 bg-red-50"
                         : "border-gray-300 focus:border-blue-500"
                     }`}
@@ -1234,10 +1237,10 @@ const Savings = () => {
                       {errors.productId}
                     </p>
                   )}
-                  {formData.memberId && !editingId && !errors.productId && (
-                    <p className="mt-1 text-sm text-blue-600">
-                      💡 Produk otomatis dipilih berdasarkan anggota yang
-                      dipilih
+                  {!editingId && formData.memberId && formData.productId && (
+                    <p className="mt-1 text-sm text-green-600 flex items-center">
+                      <span className="mr-1">🔒</span>
+                      Produk dikunci otomatis berdasarkan anggota yang dipilih
                     </p>
                   )}
                 </div>
@@ -1260,8 +1263,11 @@ const Savings = () => {
                           setErrors({ ...errors, installmentPeriod: "" });
                         }
                       }}
+                      disabled={!editingId && formData.memberId && formData.productId} // 🔒 Lock setelah auto-fill
                       className={`mt-1 block w-full rounded-md shadow-sm focus:ring-blue-500 ${
-                        errors.installmentPeriod
+                        !editingId && formData.memberId && formData.productId
+                          ? "bg-gray-100 border-gray-300 text-gray-600 cursor-not-allowed" // 🔒 Style locked
+                          : errors.installmentPeriod
                           ? "border-red-300 focus:border-red-500 bg-red-50"
                           : "border-gray-300 focus:border-blue-500"
                       }`}
@@ -1273,10 +1279,15 @@ const Savings = () => {
                         {errors.installmentPeriod}
                       </p>
                     )}
-                    {lastPeriod > 0 && !errors.installmentPeriod && (
+                    {!editingId && formData.memberId && formData.productId && (
+                      <p className="mt-1 text-sm text-green-600 flex items-center">
+                        <span className="mr-1">🔒</span>
+                        Periode dikunci otomatis (periode terakhir: {lastPeriod})
+                      </p>
+                    )}
+                    {lastPeriod > 0 && !errors.installmentPeriod && editingId && (
                       <p className="mt-1 text-sm text-gray-500">
-                        Periode terakhir: {lastPeriod}, otomatis diisi periode
-                        berikutnya
+                        Periode terakhir: {lastPeriod}
                       </p>
                     )}
                   </div>
@@ -1298,8 +1309,11 @@ const Savings = () => {
                           setErrors({ ...errors, amount: "" });
                         }
                       }}
+                      disabled={!editingId && formData.memberId && formData.productId && formData.amount} // 🔒 Lock setelah auto-fill
                       className={`mt-1 block w-full rounded-md shadow-sm focus:ring-blue-500 ${
-                        errors.amount
+                        !editingId && formData.memberId && formData.productId && formData.amount
+                          ? "bg-gray-100 border-gray-300 text-gray-600 cursor-not-allowed" // 🔒 Style locked
+                          : errors.amount
                           ? "border-red-300 focus:border-red-500 bg-red-50"
                           : "border-gray-300 focus:border-blue-500"
                       }`}

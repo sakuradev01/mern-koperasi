@@ -227,6 +227,12 @@ const updateSavings = asyncHandler(async (req, res) => {
     console.log("✅ File uploaded successfully:", req.file.path);
   }
 
+  // PERBAIKAN: Ambil existing savings dulu untuk validasi upgrade
+  const existingSavings = await Savings.findById(id);
+  if (!existingSavings) {
+    throw new ApiError(404, "Data simpanan tidak ditemukan");
+  }
+
   // Validasi member dan product jika diupdate
   if (updateData.memberId) {
     const member = await Member.findById(updateData.memberId);
@@ -589,7 +595,28 @@ const getStudentDashboardSavings = asyncHandler(async (req, res) => {
     console.log(`Period ${deposit.installmentPeriod}: ${deposit.amount}`); // Debug
   });
 
-  // Generate projection data for all periods
+  // PERBAIKAN: Cek upgrade aktif untuk proyeksi yang benar
+  let activeUpgrade = null;
+  let upgradeStartPeriod = null;
+  
+  try {
+    activeUpgrade = await ProductUpgrade.findOne({
+      memberId: member._id,
+      status: "Active"
+    }).populate([
+      { path: "oldProduct", select: "depositAmount" },
+      { path: "newProduct", select: "depositAmount" }
+    ]);
+    
+    if (activeUpgrade) {
+      upgradeStartPeriod = activeUpgrade.periodWhenUpgraded + 1;
+      console.log(`🚀 Dashboard: Active upgrade found, upgrade from period ${upgradeStartPeriod}`);
+    }
+  } catch (error) {
+    console.error("Error checking upgrade for dashboard:", error);
+  }
+
+  // Generate projection data for all periods (upgrade-aware)
   const delivered = [];
   const currentDate = new Date();
 
@@ -605,9 +632,20 @@ const getStudentDashboardSavings = asyncHandler(async (req, res) => {
       year: "numeric",
     });
 
+    // PERBAIKAN: Tentukan proyeksi berdasarkan upgrade status
+    let projectionAmount = product.depositAmount; // Default: nominal saat ini
+    
+    if (activeUpgrade && i >= upgradeStartPeriod) {
+      // Periode setelah upgrade: gunakan nominal baru + kompensasi
+      projectionAmount = activeUpgrade.newMonthlyAmount;
+    } else if (activeUpgrade && activeUpgrade.oldProduct) {
+      // Periode sebelum upgrade: gunakan nominal asli dari oldProduct
+      projectionAmount = activeUpgrade.oldProduct.depositAmount;
+    }
+
     delivered.push({
       installment_period: i,
-      projection: product.depositAmount.toString(),
+      projection: projectionAmount.toString(),
       dateProjection: dateProjection,
       realization: realizationAmountMap[i]
         ? realizationAmountMap[i].toString()

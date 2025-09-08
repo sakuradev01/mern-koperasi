@@ -102,7 +102,64 @@ if (!function_exists('postSecureMemberSavings')) {
             
             $token = $tokenData['data']['token'];
             
-            // Step 3: POST member savings data
+            // Step 3: Cek expected amount dulu (upgrade-aware)
+            // Ambil member ID dari UUID
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $apiUrl . '/api/members/' . urlencode($uuid));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Authorization: Bearer ' . $token,
+                'Content-Type: application/json'
+            ]);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+            
+            $memberResponse = curl_exec($ch);
+            $memberHttpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            
+            if ($memberHttpCode === 200) {
+                $memberData = json_decode($memberResponse, true);
+                if ($memberData && isset($memberData['success']) && $memberData['success']) {
+                    $member = $memberData['data'];
+                    $memberId = $member['_id'];
+                    $productId = $member['productId'];
+                    
+                    // Cek expected amount dengan endpoint upgrade-aware
+                    $ch = curl_init();
+                    curl_setopt($ch, CURLOPT_URL, $apiUrl . '/api/savings/check-period/' . urlencode($memberId) . '/' . urlencode($productId));
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                        'Authorization: Bearer ' . $token,
+                        'Content-Type: application/json'
+                    ]);
+                    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+                    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+                    
+                    $periodResponse = curl_exec($ch);
+                    $periodHttpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                    curl_close($ch);
+                    
+                    if ($periodHttpCode === 200) {
+                        $periodData = json_decode($periodResponse, true);
+                        if ($periodData && isset($periodData['success']) && $periodData['success']) {
+                            $expectedAmount = $periodData['data']['expectedAmount'] ?? null;
+                            $upgradeInfo = $periodData['data']['upgradeInfo'] ?? null;
+                            
+                            // Validasi amount terhadap expected amount
+                            if ($expectedAmount && isset($savingsData['amount']) && $savingsData['amount'] < $expectedAmount) {
+                                $errorMessage = 'Jumlah simpanan minimal Rp ' . number_format($expectedAmount, 0, ',', '.');
+                                if ($upgradeInfo && $upgradeInfo['isUpgradePeriod']) {
+                                    $errorMessage .= ' (termasuk kompensasi upgrade Rp ' . number_format($upgradeInfo['compensation'], 0, ',', '.') . ')';
+                                }
+                                return ['success' => false, 'message' => $errorMessage];
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Step 4: POST member savings data
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, $apiUrl . '/api/members/savings/' . urlencode($uuid));
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
