@@ -567,6 +567,76 @@ const Members = () => {
         </div>
       </div>
 
+      {/* Pagination */}
+      {filteredMembers.length > 0 && (
+        <div className="bg-white rounded-lg shadow border border-pink-100 p-4 mt-6">
+          <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
+            <div className="text-sm text-gray-600">
+              Menampilkan {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredMembers.length)} dari {filteredMembers.length} data
+              {totalPages > 1 && ` (Halaman ${currentPage} dari ${totalPages})`}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex space-x-1">
+                {/* Previous Button */}
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className={`px-3 py-2 rounded-md text-sm font-medium ${
+                    currentPage === 1 
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed" 
+                      : "bg-pink-500 text-white hover:bg-pink-600"
+                  }`}
+                >
+                  ← Prev
+                </button>
+
+                {/* Page Numbers with Ellipsis */}
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`px-3 py-2 rounded-md text-sm font-medium ${
+                        currentPage === pageNum
+                          ? "bg-pink-500 text-white shadow-md"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+
+                {/* Next Button */}
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className={`px-3 py-2 rounded-md text-sm font-medium ${
+                    currentPage === totalPages
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                      : "bg-pink-500 text-white hover:bg-pink-600"
+                  }`}
+                >
+                  Next →
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Modal Form */}
       {showModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
