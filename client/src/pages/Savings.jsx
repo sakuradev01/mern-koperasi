@@ -1325,9 +1325,15 @@ const Savings = () => {
                         {errors.amount}
                       </p>
                     )}
-                    {formData.productId && !editingId && !errors.amount && (
-                      <p className="mt-1 text-sm text-green-600">
-                        💰 Jumlah otomatis diisi sesuai harga paket produk
+                    {!editingId && formData.memberId && formData.productId && formData.amount && (
+                      <p className="mt-1 text-sm text-green-600 flex items-center">
+                        <span className="mr-1">🔒</span>
+                        Jumlah dikunci otomatis sesuai nominal upgrade/paket ({formatCurrency(formData.amount)})
+                      </p>
+                    )}
+                    {formData.productId && !editingId && !formData.amount && !errors.amount && (
+                      <p className="mt-1 text-sm text-blue-600">
+                        💰 Jumlah akan otomatis diisi sesuai harga paket produk
                       </p>
                     )}
                   </div>
