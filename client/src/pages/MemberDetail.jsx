@@ -8,6 +8,7 @@ const MemberDetail = () => {
   const navigate = useNavigate();
   const [memberData, setMemberData] = useState(null);
   const [savingsData, setSavingsData] = useState([]);
+  const [upgradeHistory, setUpgradeHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showProofModal, setShowProofModal] = useState(false);
@@ -59,8 +60,9 @@ const MemberDetail = () => {
         );
         console.log("Direct DB response:", response.data); // Debug
 
-        // Check apakah ada upgrade aktif
+        // Check apakah ada upgrade aktif dan riwayat upgrade
         let activeUpgrade = null;
+        let upgradeHistory = [];
         try {
           const upgradeResponse = await api.get(
             `/api/product-upgrade/active/${memberData.uuid}`
@@ -71,6 +73,19 @@ const MemberDetail = () => {
           }
         } catch (upgradeError) {
           console.log("No active upgrade or error:", upgradeError.message);
+        }
+
+        // Ambil riwayat upgrade
+        try {
+          const historyResponse = await api.get(
+            `/api/product-upgrade/history/${memberData.uuid}`
+          );
+          if (historyResponse.data.success && historyResponse.data.data.upgradeHistory) {
+            upgradeHistory = historyResponse.data.data.upgradeHistory;
+            console.log("Upgrade history found:", upgradeHistory); // Debug
+          }
+        } catch (historyError) {
+          console.log("No upgrade history or error:", historyError.message);
         }
 
         if (response.data && response.data.success && response.data.data) {
@@ -153,11 +168,14 @@ const MemberDetail = () => {
 
           console.log("Final converted data:", convertedData); // Debug
           setSavingsData(convertedData);
+          setUpgradeHistory(upgradeHistory); // Simpan riwayat upgrade ke state
         } else {
           setSavingsData([]);
+          setUpgradeHistory([]);
         }
       } else {
         setSavingsData([]);
+        setUpgradeHistory([]);
       }
     } catch (err) {
       console.error("Member savings fetch error:", err);
@@ -402,6 +420,97 @@ const MemberDetail = () => {
         memberData={memberData} 
         onUpgradeSuccess={handleUpgradeSuccess}
       />
+
+      {/* Upgrade History Card */}
+      {upgradeHistory.length > 0 && (
+        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg shadow-sm border border-purple-200 p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-purple-900 mb-2">
+                📈 Riwayat Upgrade Paket
+              </h3>
+              <p className="text-sm text-purple-700">
+                Member ini sudah pernah upgrade paket sebanyak {upgradeHistory.length} kali
+              </p>
+            </div>
+            <div className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">
+              {upgradeHistory.filter(h => h.status === "Active").length > 0 ? "🔄 Aktif" : "✅ Selesai"}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {upgradeHistory.map((upgrade, index) => (
+              <div key={upgrade._id || index} className="bg-white rounded-lg p-4 border border-purple-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-sm font-medium text-gray-600">
+                        #{upgradeHistory.length - index}
+                      </span>
+                      <span className="text-sm text-gray-500">
+                        {new Date(upgrade.upgradeDate).toLocaleDateString("id-ID", {
+                          day: "numeric",
+                          month: "long", 
+                          year: "numeric"
+                        })}
+                      </span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        upgrade.status === "Active" 
+                          ? "bg-green-100 text-green-800" 
+                          : upgrade.status === "Completed"
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}>
+                        {upgrade.status === "Active" ? "Aktif" : upgrade.status === "Completed" ? "Selesai" : upgrade.status}
+                      </span>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-gray-600">
+                          <strong>Dari:</strong> {upgrade.oldProduct?.title || "Produk Lama"} 
+                          <span className="text-blue-600 ml-1">
+                            ({formatCurrency(upgrade.oldProduct?.depositAmount || 0)})
+                          </span>
+                        </p>
+                        <p className="text-gray-600">
+                          <strong>Ke:</strong> {upgrade.newProduct?.title || "Produk Baru"}
+                          <span className="text-green-600 ml-1">
+                            ({formatCurrency(upgrade.newProduct?.depositAmount || 0)})
+                          </span>
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">
+                          <strong>Periode Upgrade:</strong> Bulan {upgrade.periodWhenUpgraded + 1}
+                        </p>
+                        <p className="text-gray-600">
+                          <strong>Kompensasi:</strong> 
+                          <span className="text-orange-600 ml-1 font-medium">
+                            +{formatCurrency(upgrade.compensationPerMonth)}/bulan
+                          </span>
+                        </p>
+                        <p className="text-gray-600">
+                          <strong>Setoran Baru:</strong> 
+                          <span className="text-purple-600 ml-1 font-medium">
+                            {formatCurrency(upgrade.newMonthlyAmount)}/bulan
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+
+                    {upgrade.notes && (
+                      <div className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-600">
+                        <strong>Catatan:</strong> {upgrade.notes}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">

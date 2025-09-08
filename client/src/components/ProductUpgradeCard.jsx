@@ -8,6 +8,7 @@ const ProductUpgradeCard = ({ memberData, onUpgradeSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [calculating, setCalculating] = useState(false);
+  const [isAtHighestPackage, setIsAtHighestPackage] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -17,14 +18,25 @@ const ProductUpgradeCard = ({ memberData, onUpgradeSuccess }) => {
     try {
       const response = await api.get("/api/products");
       if (response.data.success) {
-        // Filter produk yang depositAmount lebih tinggi dari produk saat ini
+        const allProducts = response.data.data;
         const currentDeposit = memberData.product?.depositAmount || 0;
-        const higherProducts = response.data.data.filter(
+        
+        // Filter produk yang depositAmount lebih tinggi dari produk saat ini
+        const higherProducts = allProducts.filter(
           (product) => 
             product.depositAmount > currentDeposit && 
             product._id !== memberData.productId
         );
+        
+        // Cek apakah sudah di paket termahal
+        const isAtHighest = allProducts.every(
+          (product) => product.depositAmount <= currentDeposit || product._id === memberData.productId
+        );
+        
         setProducts(higherProducts);
+        setIsAtHighestPackage(isAtHighest && higherProducts.length === 0);
+        
+        console.log(`Member ${memberData.name}: Current ${currentDeposit}, Higher products: ${higherProducts.length}, Is at highest: ${isAtHighest && higherProducts.length === 0}`);
       }
     } catch (error) {
       console.error("Error fetching products:", error);
@@ -90,30 +102,58 @@ const ProductUpgradeCard = ({ memberData, onUpgradeSuccess }) => {
     }).format(amount);
   };
 
-  // Jika tidak ada produk yang bisa di-upgrade, jangan tampilkan card
-  if (products.length === 0) {
+  // Jika tidak ada produk yang bisa di-upgrade dan bukan karena sudah di paket termahal, jangan tampilkan card
+  if (products.length === 0 && !isAtHighestPackage) {
     return null;
   }
 
   return (
     <>
       {/* Upgrade Card */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm border border-blue-200 p-6 mb-6">
+      <div className={`rounded-lg shadow-sm border p-6 mb-6 ${
+        isAtHighestPackage 
+          ? "bg-gradient-to-r from-green-50 to-emerald-50 border-green-200" 
+          : "bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200"
+      }`}>
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-blue-900 mb-2">
-              🚀 Upgrade Produk Simpanan
-            </h3>
-            <p className="text-sm text-blue-700">
-              Tingkatkan produk simpanan untuk benefit yang lebih baik
-            </p>
+            {isAtHighestPackage ? (
+              <>
+                <h3 className="text-lg font-semibold text-green-900 mb-2">
+                  👑 Paket Premium Tertinggi
+                </h3>
+                <p className="text-sm text-green-700">
+                  Member sudah menggunakan paket dengan benefit terbaik
+                </p>
+                <div className="mt-2 text-xs text-green-600">
+                  <strong>Paket Saat Ini:</strong> {memberData.product?.title} 
+                  <span className="ml-1">({formatCurrency(memberData.product?.depositAmount || 0)})</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-semibold text-blue-900 mb-2">
+                  🚀 Upgrade Produk Simpanan
+                </h3>
+                <p className="text-sm text-blue-700">
+                  Tingkatkan produk simpanan untuk benefit yang lebih baik
+                </p>
+              </>
+            )}
           </div>
-          <button
-            onClick={() => setShowUpgradeModal(true)}
-            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
-          >
-            Lihat Opsi Upgrade
-          </button>
+          
+          {isAtHighestPackage ? (
+            <div className="bg-green-100 text-green-800 px-4 py-2 rounded-lg text-sm font-medium">
+              ✅ Paket Terbaik
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowUpgradeModal(true)}
+              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              Lihat Opsi Upgrade
+            </button>
+          )}
         </div>
 
         {/* Tampilkan badge kompensasi jika ada calculation */}

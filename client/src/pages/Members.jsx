@@ -6,6 +6,7 @@ const Members = () => {
   const navigate = useNavigate();
   const [members, setMembers] = useState([]);
   const [products, setProducts] = useState([]);
+  const [upgradeStatuses, setUpgradeStatuses] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -42,7 +43,11 @@ const Members = () => {
     try {
       const response = await api.get("/api/members");
       if (response.data.success) {
-        setMembers(response.data.data);
+        const membersData = response.data.data;
+        setMembers(membersData);
+        
+        // Fetch upgrade status untuk setiap member
+        await fetchUpgradeStatuses(membersData);
       }
     } catch (err) {
       setError("Gagal memuat data anggota");
@@ -50,6 +55,46 @@ const Members = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchUpgradeStatuses = async (membersData) => {
+    const statuses = {};
+    
+    // Fetch upgrade status untuk setiap member secara parallel
+    const promises = membersData.map(async (member) => {
+      try {
+        const response = await api.get(`/api/product-upgrade/history/${member.uuid}`);
+        if (response.data.success && response.data.data.upgradeHistory) {
+          const history = response.data.data.upgradeHistory;
+          const activeUpgrade = response.data.data.activeUpgrade;
+          
+          statuses[member.uuid] = {
+            hasUpgradeHistory: history.length > 0,
+            upgradeCount: history.length,
+            hasActiveUpgrade: !!activeUpgrade,
+            latestUpgrade: history.length > 0 ? history[0] : null
+          };
+        } else {
+          statuses[member.uuid] = {
+            hasUpgradeHistory: false,
+            upgradeCount: 0,
+            hasActiveUpgrade: false,
+            latestUpgrade: null
+          };
+        }
+      } catch (error) {
+        // Jika error, anggap tidak ada upgrade
+        statuses[member.uuid] = {
+          hasUpgradeHistory: false,
+          upgradeCount: 0,
+          hasActiveUpgrade: false,
+          latestUpgrade: null
+        };
+      }
+    });
+
+    await Promise.all(promises);
+    setUpgradeStatuses(statuses);
   };
 
   const handleSubmit = async (e) => {
@@ -216,12 +261,35 @@ const Members = () => {
                   {member.uuid}
                 </td>
                 <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">
-                  <button
-                    onClick={() => navigate(`/master/anggota/${member.uuid}`)}
-                    className="text-pink-600 hover:text-pink-800 hover:underline font-medium transition-colors"
-                  >
-                    {member.name}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => navigate(`/master/anggota/${member.uuid}`)}
+                      className="text-pink-600 hover:text-pink-800 hover:underline font-medium transition-colors"
+                    >
+                      {member.name}
+                    </button>
+                    
+                    {/* Indikator Upgrade */}
+                    {upgradeStatuses[member.uuid]?.hasUpgradeHistory && (
+                      <div className="flex items-center gap-1">
+                        {upgradeStatuses[member.uuid]?.hasActiveUpgrade ? (
+                          <span 
+                            className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-medium"
+                            title={`Upgrade aktif - ${upgradeStatuses[member.uuid]?.upgradeCount} kali upgrade`}
+                          >
+                            🚀 Aktif
+                          </span>
+                        ) : (
+                          <span 
+                            className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs font-medium"
+                            title={`Pernah upgrade ${upgradeStatuses[member.uuid]?.upgradeCount} kali`}
+                          >
+                            📈 {upgradeStatuses[member.uuid]?.upgradeCount}x
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </td>
                 <td className="hidden sm:table-cell px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
                   {member.user.username}
