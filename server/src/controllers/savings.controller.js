@@ -1,6 +1,7 @@
 import { Savings } from "../models/savings.model.js";
 import { Member } from "../models/member.model.js";
 import { Product } from "../models/product.model.js";
+import { ProductUpgrade } from "../models/productUpgrade.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js";
@@ -102,9 +103,42 @@ const createSavings = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Produk tidak ditemukan");
   }
 
-  // Validate amount against product limits
-  if (amount < product.depositAmount) {
-    throw new ApiError(400, `Jumlah simpanan minimal ${product.depositAmount}`);
+  // PERBAIKAN: Validate amount dengan mempertimbangkan upgrade aktif
+  let expectedAmount = product.depositAmount;
+  let upgradeInfo = null;
+  
+  // Cek apakah ada upgrade aktif untuk member ini
+  const activeUpgrade = await ProductUpgrade.findOne({
+    memberId: member._id,
+    status: "Active"
+  });
+  
+  if (activeUpgrade && installmentPeriod > activeUpgrade.periodWhenUpgraded) {
+    // Jika ada upgrade aktif dan periode ini setelah upgrade, gunakan nominal baru
+    expectedAmount = activeUpgrade.newMonthlyAmount;
+    upgradeInfo = {
+      isUpgradePeriod: true,
+      oldAmount: product.depositAmount,
+      newAmount: activeUpgrade.newMonthlyAmount,
+      compensation: activeUpgrade.compensationPerMonth
+    };
+    console.log(`🚀 Upgrade detected for period ${installmentPeriod}, expected amount: ${expectedAmount}`);
+  }
+  
+  if (amount < expectedAmount) {
+    const errorMessage = upgradeInfo 
+      ? `Jumlah simpanan minimal ${formatCurrency(expectedAmount)} (termasuk kompensasi upgrade ${formatCurrency(upgradeInfo.compensation)})`
+      : `Jumlah simpanan minimal ${formatCurrency(expectedAmount)}`;
+    throw new ApiError(400, errorMessage);
+  }
+  
+  // Helper function untuk format currency di error message
+  function formatCurrency(amount) {
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
+      minimumFractionDigits: 0,
+    }).format(amount);
   }
 
   // Check for duplicate installment period for same member and product
@@ -207,12 +241,44 @@ const updateSavings = asyncHandler(async (req, res) => {
       throw new ApiError(404, "Produk tidak ditemukan");
     }
 
-    // Validasi amount terhadap product
-    if (updateData.amount && updateData.amount < product.depositAmount) {
-      throw new ApiError(
-        400,
-        `Jumlah simpanan minimal ${product.depositAmount}`
-      );
+    // PERBAIKAN: Validasi amount terhadap product dengan mempertimbangkan upgrade
+    if (updateData.amount) {
+      let expectedAmount = product.depositAmount;
+      let upgradeInfo = null;
+      
+      // Cek apakah ada upgrade aktif untuk member ini
+      const activeUpgrade = await ProductUpgrade.findOne({
+        memberId: existingSavings.memberId,
+        status: "Active"
+      });
+      
+      if (activeUpgrade && existingSavings.installmentPeriod > activeUpgrade.periodWhenUpgraded) {
+        // Jika ada upgrade aktif dan periode ini setelah upgrade, gunakan nominal baru
+        expectedAmount = activeUpgrade.newMonthlyAmount;
+        upgradeInfo = {
+          isUpgradePeriod: true,
+          oldAmount: product.depositAmount,
+          newAmount: activeUpgrade.newMonthlyAmount,
+          compensation: activeUpgrade.compensationPerMonth
+        };
+        console.log(`🚀 Update: Upgrade detected for period ${existingSavings.installmentPeriod}, expected amount: ${expectedAmount}`);
+      }
+      
+      if (updateData.amount < expectedAmount) {
+        const errorMessage = upgradeInfo 
+          ? `Jumlah simpanan minimal ${formatCurrencyUpdate(expectedAmount)} (termasuk kompensasi upgrade ${formatCurrencyUpdate(upgradeInfo.compensation)})`
+          : `Jumlah simpanan minimal ${formatCurrencyUpdate(expectedAmount)}`;
+        throw new ApiError(400, errorMessage);
+      }
+    }
+    
+    // Helper function untuk format currency di error message update
+    function formatCurrencyUpdate(amount) {
+      return new Intl.NumberFormat("id-ID", {
+        style: "currency",
+        currency: "IDR",
+        minimumFractionDigits: 0,
+      }).format(amount);
     }
   }
 
@@ -393,9 +459,11 @@ const getLastInstallmentPeriod = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Member ID dan Product ID wajib diisi");
   }
 
+  // PERBAIKAN: Cari periode terakhir untuk member (semua produk) karena setelah upgrade productId berubah
   const lastSavings = await Savings.findOne({
     memberId,
-    productId,
+    // HAPUS filter productId agar bisa ambil dari produk lama juga
+    type: "Setoran"
   })
     .sort({ installmentPeriod: -1 })
     .select("installmentPeriod");
@@ -403,10 +471,44 @@ const getLastInstallmentPeriod = asyncHandler(async (req, res) => {
   const lastPeriod = lastSavings ? lastSavings.installmentPeriod : 0;
   const nextPeriod = lastPeriod + 1;
 
+  // TAMBAHAN: Cek apakah ada upgrade aktif untuk menentukan expected amount
+  let expectedAmount = null;
+  let upgradeInfo = null;
+  
+  try {
+    const member = await Member.findById(memberId).populate("productId");
+    if (member && member.productId) {
+      expectedAmount = member.productId.depositAmount;
+      
+      // Cek upgrade aktif
+      const activeUpgrade = await ProductUpgrade.findOne({
+        memberId: member._id,
+        status: "Active"
+      });
+      
+      if (activeUpgrade && nextPeriod > activeUpgrade.periodWhenUpgraded) {
+        expectedAmount = activeUpgrade.newMonthlyAmount;
+        upgradeInfo = {
+          isUpgradePeriod: true,
+          oldAmount: member.productId.depositAmount,
+          newAmount: activeUpgrade.newMonthlyAmount,
+          compensation: activeUpgrade.compensationPerMonth,
+          upgradeFromPeriod: activeUpgrade.periodWhenUpgraded + 1
+        };
+      }
+    }
+  } catch (error) {
+    console.error("Error checking upgrade for period calculation:", error);
+  }
+
+  console.log(`🔍 getLastInstallmentPeriod - Member: ${memberId}, Last: ${lastPeriod}, Next: ${nextPeriod}, Expected: ${expectedAmount}`);
+
   res.status(200).json(
     new ApiResponse(200, {
       lastPeriod,
       nextPeriod,
+      expectedAmount,
+      upgradeInfo
     })
   );
 });

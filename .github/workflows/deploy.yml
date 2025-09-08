@@ -44,7 +44,7 @@ jobs:
             echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
             echo "STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}" >> .env
             echo "NODE_ENV=production" >> .env
-            
+
 
             # Install backend dependencies
             npm ci --production

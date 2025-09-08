@@ -210,13 +210,39 @@ const Savings = () => {
       );
       const data = response.data?.data || response.data || {};
       const last = data.lastPeriod ?? 0;
-      const next = (last || 0) + 1;
+      const next = data.nextPeriod ?? ((last || 0) + 1);
+      const expectedAmount = data.expectedAmount;
+      const upgradeInfo = data.upgradeInfo;
+      
       setLastPeriod(last);
+      
       const selectionChanged =
         originalSelection.memberId !== formData.memberId ||
         originalSelection.productId !== formData.productId;
+      
       if (!editingId || selectionChanged) {
-        setFormData((prev) => ({ ...prev, installmentPeriod: next }));
+        // PERBAIKAN: Set periode dan amount berdasarkan upgrade info
+        const updateData = { installmentPeriod: next };
+        
+        // Auto-set amount jika ada expected amount
+        if (expectedAmount) {
+          updateData.amount = expectedAmount;
+        }
+        
+        // Update description berdasarkan upgrade status
+        if (upgradeInfo && upgradeInfo.isUpgradePeriod) {
+          updateData.description = `Simpanan periode ${next} - Upgrade (${formatCurrency(upgradeInfo.oldAmount)} → ${formatCurrency(upgradeInfo.newAmount)} + kompensasi ${formatCurrency(upgradeInfo.compensation)})`;
+        } else {
+          updateData.description = `Simpanan bulanan periode ${next}`;
+        }
+        
+        setFormData((prev) => ({ ...prev, ...updateData }));
+        
+        // Log untuk debugging
+        console.log(`🔍 Period check - Last: ${last}, Next: ${next}, Expected: ${expectedAmount}`);
+        if (upgradeInfo) {
+          console.log(`🚀 Upgrade detected from period ${upgradeInfo.upgradeFromPeriod}`);
+        }
       }
     } catch (error) {
       console.error("Error checking last period:", error);
@@ -257,12 +283,11 @@ const Savings = () => {
       newErrors.description = "Keterangan tidak boleh lebih dari 500 karakter";
     }
     
-    // Check minimum amount against product
-    if (formData.productId && formData.amount) {
-      const selectedProduct = products.find(p => p._id === formData.productId);
-      if (selectedProduct && formData.amount < selectedProduct.depositAmount) {
-        newErrors.amount = `Jumlah minimal ${formatCurrency(selectedProduct.depositAmount)}`;
-      }
+    // PERBAIKAN: Check minimum amount dengan mempertimbangkan upgrade
+    if (formData.productId && formData.amount && formData.memberId) {
+      // Validasi akan dilakukan di backend yang sudah upgrade-aware
+      // Frontend hanya validasi basic (amount > 0)
+      // Backend akan return error message yang tepat jika amount salah
     }
     
     // IMPORTANT: Handle file validation properly

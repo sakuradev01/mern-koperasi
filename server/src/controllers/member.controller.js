@@ -2,6 +2,7 @@ import { Member } from "../models/member.model.js";
 import { User } from "../models/user.model.js";
 import { Savings } from "../models/savings.model.js";
 import { Product } from "../models/product.model.js";
+import { ProductUpgrade } from "../models/productUpgrade.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js";
@@ -291,21 +292,55 @@ const createMemberSavings = asyncHandler(async (req, res) => {
       throw new ApiError(400, "Produk tidak aktif atau tidak ditemukan");
     }
 
-    // Validasi amount sesuai dengan depositAmount produk (convert to number)
+    // PERBAIKAN: Validasi amount dengan mempertimbangkan upgrade aktif
     const numAmount = parseInt(amount);
-    if (numAmount !== product.depositAmount) {
-      throw new ApiError(400, `Jumlah simpanan harus sesuai dengan produk "${product.title}": Rp ${product.depositAmount.toLocaleString()}`);
+    let expectedAmount = product.depositAmount;
+    let upgradeInfo = null;
+    
+    // Cek apakah ada upgrade aktif untuk member ini
+    const activeUpgrade = await ProductUpgrade.findOne({
+      memberId: member._id,
+      status: "Active"
+    });
+    
+    // Tentukan periode berikutnya untuk validasi upgrade
+    const tempLastSaving = await Savings.findOne({
+      memberId: member._id,
+      type: "Setoran"
+    }).sort({ installmentPeriod: -1 });
+    const tempNextPeriod = tempLastSaving ? tempLastSaving.installmentPeriod + 1 : 1;
+    
+    if (activeUpgrade && tempNextPeriod > activeUpgrade.periodWhenUpgraded) {
+      // Jika ada upgrade aktif dan periode ini setelah upgrade, gunakan nominal baru
+      expectedAmount = activeUpgrade.newMonthlyAmount;
+      upgradeInfo = {
+        isUpgradePeriod: true,
+        oldAmount: product.depositAmount,
+        newAmount: activeUpgrade.newMonthlyAmount,
+        compensation: activeUpgrade.compensationPerMonth
+      };
+      console.log(`🚀 Member submit: Upgrade detected for period ${tempNextPeriod}, expected amount: ${expectedAmount}`);
+    }
+    
+    if (numAmount !== expectedAmount) {
+      const errorMessage = upgradeInfo 
+        ? `Jumlah simpanan harus sesuai dengan upgrade "${activeUpgrade.newProduct?.title || 'produk baru'}": Rp ${expectedAmount.toLocaleString()} (termasuk kompensasi Rp ${upgradeInfo.compensation.toLocaleString()})`
+        : `Jumlah simpanan harus sesuai dengan produk "${product.title}": Rp ${expectedAmount.toLocaleString()}`;
+      throw new ApiError(400, errorMessage);
     }
 
-    // Cari periode installment terakhir untuk member dan produk ini
+    // PERBAIKAN: Cari periode installment terakhir untuk member (semua produk)
+    // Karena setelah upgrade, productId sudah berubah tapi kita perlu lanjut dari periode terakhir
     const lastSaving = await Savings.findOne({
       memberId: member._id,
-      productId: member.productId,
       type: "Setoran"
+      // HAPUS filter productId agar bisa ambil dari produk lama juga
     }).sort({ installmentPeriod: -1 });
 
     // Tentukan periode installment berikutnya
     const nextPeriod = lastSaving ? lastSaving.installmentPeriod + 1 : 1;
+    
+    console.log(`🔍 Last saving period: ${lastSaving?.installmentPeriod || 'none'}, Next period: ${nextPeriod}`);
 
     // Validasi tidak melebihi termDuration
     if (nextPeriod > product.termDuration) {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../api/index.jsx";
+import ProductUpgradeCard from "../components/ProductUpgradeCard.jsx";
 
 const MemberDetail = () => {
   const { uuid } = useParams();
@@ -11,6 +12,11 @@ const MemberDetail = () => {
   const [error, setError] = useState("");
   const [showProofModal, setShowProofModal] = useState(false);
   const [selectedProof, setSelectedProof] = useState(null);
+
+  // Handler untuk refresh data setelah upgrade
+  const handleUpgradeSuccess = () => {
+    fetchMemberDetail();
+  };
 
   useEffect(() => {
     if (uuid) {
@@ -53,6 +59,20 @@ const MemberDetail = () => {
         );
         console.log("Direct DB response:", response.data); // Debug
 
+        // Check apakah ada upgrade aktif
+        let activeUpgrade = null;
+        try {
+          const upgradeResponse = await api.get(
+            `/api/product-upgrade/active/${memberData.uuid}`
+          );
+          if (upgradeResponse.data.success && upgradeResponse.data.data.hasActiveUpgrade) {
+            activeUpgrade = upgradeResponse.data.data.activeUpgrade;
+            console.log("Active upgrade found:", activeUpgrade); // Debug
+          }
+        } catch (upgradeError) {
+          console.log("No active upgrade or error:", upgradeError.message);
+        }
+
         if (response.data && response.data.success && response.data.data) {
           const savingsArray = response.data.data.savings || [];
           console.log("Raw savings from DB:", savingsArray); // Debug
@@ -60,7 +80,20 @@ const MemberDetail = () => {
           // Get product info untuk term duration
           const productInfo = memberData.product;
           const termDuration = productInfo?.termDuration || 12;
-          const depositAmount = productInfo?.depositAmount || 0;
+          
+          // PERBAIKAN: Simpan nominal asli sebelum upgrade
+          let originalDepositAmount = productInfo?.depositAmount || 0;
+          let upgradeStartPeriod = null;
+          
+          // Jika ada upgrade aktif, gunakan nominal lama dari upgrade record
+          if (activeUpgrade) {
+            upgradeStartPeriod = activeUpgrade.periodWhenUpgraded + 1;
+            // PENTING: Gunakan oldProduct depositAmount dari upgrade record
+            originalDepositAmount = activeUpgrade.oldProduct?.depositAmount || originalDepositAmount;
+            console.log("Upgrade active from period:", upgradeStartPeriod);
+            console.log("Original deposit amount:", originalDepositAmount);
+            console.log("New deposit amount:", activeUpgrade.newMonthlyAmount);
+          }
 
           // Create map dari existing savings berdasarkan installment period
           const savingsMap = {};
@@ -90,9 +123,17 @@ const MemberDetail = () => {
               year: "numeric",
             });
 
+            // PERBAIKAN: Tentukan nominal projection berdasarkan upgrade
+            let projectionAmount = originalDepositAmount; // Selalu mulai dari nominal asli
+            
+            if (activeUpgrade && period >= upgradeStartPeriod) {
+              // Gunakan nominal baru + kompensasi untuk periode setelah upgrade
+              projectionAmount = activeUpgrade.newMonthlyAmount;
+            }
+
             convertedData.push({
               installment_period: period,
-              projection: depositAmount.toString(),
+              projection: projectionAmount.toString(),
               dateProjection: dateProjection,
               realization: existingSaving
                 ? existingSaving.amount.toString()
@@ -101,6 +142,12 @@ const MemberDetail = () => {
                 ? existingSaving.proofFile || "0"
                 : "0",
               status: existingSaving ? existingSaving.status : "Belum Bayar",
+              isUpgradePeriod: activeUpgrade && period >= upgradeStartPeriod,
+              upgradeInfo: activeUpgrade && period >= upgradeStartPeriod ? {
+                oldAmount: originalDepositAmount, // Gunakan nominal asli, bukan yang sudah berubah
+                newAmount: activeUpgrade.newMonthlyAmount,
+                compensation: activeUpgrade.compensationPerMonth
+              } : null
             });
           }
 
@@ -350,6 +397,12 @@ const MemberDetail = () => {
         </div>
       </div>
 
+      {/* Product Upgrade Card */}
+      <ProductUpgradeCard 
+        memberData={memberData} 
+        onUpgradeSuccess={handleUpgradeSuccess}
+      />
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -457,8 +510,19 @@ const MemberDetail = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {period.dateProjection || "-"}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-blue-600">
-                      {formatCurrency(parseInt(period.projection) || 0)}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-col">
+                        <span className={`text-sm font-semibold ${period.isUpgradePeriod ? 'text-orange-600' : 'text-blue-600'}`}>
+                          {formatCurrency(parseInt(period.projection) || 0)}
+                        </span>
+                        {period.isUpgradePeriod && (
+                          <div className="text-xs text-orange-500 mt-1">
+                            🚀 Upgrade: {formatCurrency(period.upgradeInfo.oldAmount)} → {formatCurrency(period.upgradeInfo.newAmount)}
+                            <br />
+                            💰 Kompensasi: +{formatCurrency(period.upgradeInfo.compensation)}
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600">
                       {formatCurrency(parseInt(period.realization) || 0)}
