@@ -1,119 +1,1001 @@
 {
 	"info": {
 		"_postman_id": "member-auth-collection",
-		"name": "Member Authentication Flow",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+		"name": "MERN Koperasi Complete API - Member & Admin",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"description": "Complete API collection for MERN Koperasi System with Product Upgrade support"
 	},
 	"item": [
 		{
-			"name": "1. Generate Encrypted Payload",
-			"event": [
+			"name": "Member Authentication (Magic Key)",
+			"item": [
 				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							"if (pm.response.code === 200) {",
-							"    const response = pm.response.json();",
-							"    pm.collectionVariables.set('encryptedPayload', response.data.encryptedPayload);",
-							"    pm.collectionVariables.set('test_uuid', response.data.uuid);",
-							"}"
+					"name": "1. Generate Encrypted Payload",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('encryptedPayload', response.data.encryptedPayload);",
+									"    pm.collectionVariables.set('test_uuid', response.data.uuid);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
 						],
-						"type": "text/javascript"
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"uuid\": \"JPSB37142\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/member-auth/generate-payload",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"member-auth",
+								"generate-payload"
+							]
+						}
 					}
-				}
-			],
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "application/json"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n    \"uuid\": \"JPSB37142\"\n}"
 				},
-				"url": {
-					"raw": "{{base_url}}/api/member-auth/generate-payload",
-					"host": [
-						"{{base_url}}"
-					],
-					"path": [
-						"api",
-						"member-auth",
-						"generate-payload"
-					]
-				}
-			}
-		},
-		{
-			"name": "2. Get Member Token",
-			"event": [
 				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							"if (pm.response.code === 200) {",
-							"    const response = pm.response.json();",
-							"    pm.collectionVariables.set('memberToken', response.data.token);",
-							"    pm.collectionVariables.set('memberUuid', response.data.member.uuid);",
-							"}"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "x-koperasi-auth",
-						"value": "{{encryptedPayload}}"
-					}
-				],
-				"url": {
-					"raw": "{{base_url}}/api/member-auth/token",
-					"host": [
-						"{{base_url}}"
+					"name": "2. Get Member Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('memberToken', response.data.token);",
+									"    pm.collectionVariables.set('memberUuid', response.data.member.uuid);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
 					],
-					"path": [
-						"api",
-						"member-auth",
-						"token"
-					]
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-koperasi-auth",
+								"value": "{{encryptedPayload}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/member-auth/token",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"member-auth",
+								"token"
+							]
+						}
+					}
+				},
+				{
+					"name": "3. Access Member Dashboard",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{memberToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/members/dashboard/{{memberUuid}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"members",
+								"dashboard",
+								"{{memberUuid}}"
+							]
+						}
+					}
 				}
-			}
+			]
 		},
 		{
-			"name": "3. Access Member Dashboard",
-			"request": {
-				"method": "GET",
-				"header": [
-					{
-						"key": "Authorization",
-						"value": "Bearer {{memberToken}}"
+			"name": "Member Submit Savings (External)",
+			"item": [
+				{
+					"name": "Member Submit Savings with Magic Key",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{memberToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"amount\": 2500000,\n    \"description\": \"Simpanan bulanan periode 1\",\n    \"type\": \"Setoran\",\n    \"status\": \"Pending\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/members/savings/{{test_uuid}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"members",
+								"savings",
+								"{{test_uuid}}"
+							]
+						}
 					}
-				],
-				"url": {
-					"raw": "{{base_url}}/api/members/dashboard/{{memberUuid}}",
-					"host": [
-						"{{base_url}}"
-					],
-					"path": [
-						"api",
-						"members",
-						"dashboard",
-						"{{memberUuid}}"
+				},
+				{
+					"name": "Member Submit Savings with File Upload",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{memberToken}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "amount",
+									"value": "2500000",
+									"type": "text"
+								},
+								{
+									"key": "description",
+									"value": "Simpanan bulanan periode 1",
+									"type": "text"
+								},
+								{
+									"key": "type",
+									"value": "Setoran",
+									"type": "text"
+								},
+								{
+									"key": "status",
+									"value": "Pending",
+									"type": "text"
+								},
+								{
+									"key": "proofFile",
+									"src": "/path/to/proof/file.jpg",
+									"type": "file"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/members/savings/{{test_uuid}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"members",
+								"savings",
+								"{{test_uuid}}"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Admin Authentication",
+			"item": [
+				{
+					"name": "Admin Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"admin\",\n    \"password\": \"admin123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('adminToken', response.data.token);",
+									"    console.log('Admin token saved:', response.data.token);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
 					]
 				}
-			}
+			]
+		},
+		{
+			"name": "Members Management (Admin)",
+			"item": [
+				{
+					"name": "Get All Members",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/members",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"members"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Member Detail",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/members/{{test_uuid}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"members",
+								"{{test_uuid}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Member",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Test Member\",\n    \"gender\": \"L\",\n    \"phone\": \"08123456789\",\n    \"city\": \"Jakarta\",\n    \"completeAddress\": \"Test Address\",\n    \"username\": \"testmember\",\n    \"password\": \"password123\",\n    \"productId\": \"{{product_id}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/members",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"members"
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Member",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Updated Test Member\",\n    \"gender\": \"L\",\n    \"phone\": \"08123456789\",\n    \"city\": \"Jakarta\",\n    \"completeAddress\": \"Updated Address\",\n    \"username\": \"testmember\",\n    \"productId\": \"{{product_id}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/members/{{test_uuid}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"members",
+								"{{test_uuid}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Member",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/members/{{test_uuid}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"members",
+								"{{test_uuid}}"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Products Management (Admin)",
+			"item": [
+				{
+					"name": "Get All Products",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/products",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"products"
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.length > 0) {",
+									"        pm.collectionVariables.set('product_id', response.data[0]._id);",
+									"        console.log('Product ID saved:', response.data[0]._id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Create Product",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"PAKET TEST\",\n    \"description\": \"Test Product\",\n    \"depositAmount\": 2500000,\n    \"returnProfit\": 500000,\n    \"termDuration\": 36,\n    \"isActive\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/products",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"products"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Savings Management (Admin)",
+			"item": [
+				{
+					"name": "Get All Savings",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/savings?page=1&limit=10",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"savings"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Savings by Member UUID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/savings/member-by-uuid/{{test_uuid}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"savings",
+								"member-by-uuid",
+								"{{test_uuid}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Check Last Installment Period",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/savings/check-period/{{member_id}}/{{product_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"savings",
+								"check-period",
+								"{{member_id}}",
+								"{{product_id}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Savings (with file upload)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "memberId",
+									"value": "{{member_id}}",
+									"type": "text"
+								},
+								{
+									"key": "productId",
+									"value": "{{product_id}}",
+									"type": "text"
+								},
+								{
+									"key": "installmentPeriod",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "amount",
+									"value": "2500000",
+									"type": "text"
+								},
+								{
+									"key": "savingsDate",
+									"value": "2024-01-01",
+									"type": "text"
+								},
+								{
+									"key": "type",
+									"value": "Setoran",
+									"type": "text"
+								},
+								{
+									"key": "description",
+									"value": "Test savings",
+									"type": "text"
+								},
+								{
+									"key": "status",
+									"value": "Pending",
+									"type": "text"
+								},
+								{
+									"key": "proofFile",
+									"src": "/path/to/test/file.jpg",
+									"type": "file"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/savings",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"savings"
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Savings Status",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"status\": \"Approved\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/savings/{{savings_id}}/status",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"savings",
+								"{{savings_id}}",
+								"status"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Product Upgrade Management (Admin)",
+			"item": [
+				{
+					"name": "Calculate Upgrade Compensation",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"newProductId\": \"{{new_product_id}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/product-upgrade/calculate/{{test_uuid}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"product-upgrade",
+								"calculate",
+								"{{test_uuid}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Execute Product Upgrade",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"newProductId\": \"{{new_product_id}}\",\n    \"reason\": \"Upgrade ke paket premium\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/product-upgrade/execute/{{test_uuid}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"product-upgrade",
+								"execute",
+								"{{test_uuid}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Upgrade History",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/product-upgrade/history/{{test_uuid}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"product-upgrade",
+								"history",
+								"{{test_uuid}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Active Upgrade",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/product-upgrade/active/{{test_uuid}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"product-upgrade",
+								"active",
+								"{{test_uuid}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get All Upgrades",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/product-upgrade",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"product-upgrade"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Loan Products Management (Admin)",
+			"item": [
+				{
+					"name": "Get All Loan Products",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/loan-products",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"loan-products"
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Loan Product",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Pinjaman Test\",\n    \"description\": \"Test Loan Product\",\n    \"maxAmount\": 10000000,\n    \"interestRate\": 5,\n    \"termDuration\": 12,\n    \"isActive\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/loan-products",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"loan-products"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Loan Product by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/loan-products/{{loan_product_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"loan-products",
+								"{{loan_product_id}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Loan Product",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Pinjaman Test Updated\",\n    \"description\": \"Updated Test Loan Product\",\n    \"maxAmount\": 15000000,\n    \"interestRate\": 6,\n    \"termDuration\": 24,\n    \"isActive\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/loan-products/{{loan_product_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"loan-products",
+								"{{loan_product_id}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Loan Product",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/loan-products/{{loan_product_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"loan-products",
+								"{{loan_product_id}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Toggle Loan Product Status",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/loan-products/{{loan_product_id}}/toggle",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"loan-products",
+								"{{loan_product_id}}",
+								"toggle"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Public API",
+			"item": [
+				{
+					"name": "Get Active Products",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/public/products",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"public",
+								"products"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Active Loan Products",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/public/loan-products",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"public",
+								"loan-products"
+							]
+						}
+					}
+				}
+			]
 		}
 	],
 	"variable": [
 		{
 			"key": "base_url",
-			"value": "http://localhost:8000"
+			"value": "http://localhost:5000"
 		},
 		{
 			"key": "encryptedPayload",
@@ -129,6 +1011,30 @@
 		},
 		{
 			"key": "test_uuid",
+			"value": ""
+		},
+		{
+			"key": "adminToken",
+			"value": ""
+		},
+		{
+			"key": "product_id",
+			"value": ""
+		},
+		{
+			"key": "new_product_id",
+			"value": ""
+		},
+		{
+			"key": "member_id",
+			"value": ""
+		},
+		{
+			"key": "savings_id",
+			"value": ""
+		},
+		{
+			"key": "loan_product_id",
 			"value": ""
 		}
 	]

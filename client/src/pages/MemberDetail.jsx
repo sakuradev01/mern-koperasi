@@ -96,14 +96,16 @@ const MemberDetail = () => {
           const productInfo = memberData.product;
           const termDuration = productInfo?.termDuration || 12;
           
-          // PERBAIKAN: Simpan nominal asli sebelum upgrade
+  // PERBAIKAN: Simpan nominal asli sebelum upgrade
           let originalDepositAmount = productInfo?.depositAmount || 0;
           let upgradeStartPeriod = null;
+          let isUpgraded = false;
           
           // Jika ada upgrade aktif, gunakan nominal lama dari upgrade record
           if (activeUpgrade) {
             upgradeStartPeriod = activeUpgrade.periodWhenUpgraded + 1;
-            // PENTING: Gunakan oldProduct depositAmount dari upgrade record
+            isUpgraded = true;
+            // PENTING: Gunakan oldProduct depositAmount dari upgrade record untuk proyeksi periode awal
             originalDepositAmount = activeUpgrade.oldProduct?.depositAmount || originalDepositAmount;
             console.log("Upgrade active from period:", upgradeStartPeriod);
             console.log("Original deposit amount:", originalDepositAmount);
@@ -139,11 +141,14 @@ const MemberDetail = () => {
             });
 
             // PERBAIKAN: Tentukan nominal projection berdasarkan upgrade
-            let projectionAmount = originalDepositAmount; // Selalu mulai dari nominal asli
+            let projectionAmount;
             
-            if (activeUpgrade && period >= upgradeStartPeriod) {
-              // Gunakan nominal baru + kompensasi untuk periode setelah upgrade
+            if (isUpgraded && period >= upgradeStartPeriod) {
+              // Untuk periode setelah upgrade, gunakan nominal baru + kompensasi
               projectionAmount = activeUpgrade.newMonthlyAmount;
+            } else {
+              // Untuk periode sebelum upgrade atau tidak ada upgrade, gunakan nominal asli
+              projectionAmount = originalDepositAmount;
             }
 
             convertedData.push({

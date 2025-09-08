@@ -104,7 +104,10 @@ const createSavings = asyncHandler(async (req, res) => {
   }
 
   // PERBAIKAN: Validate amount dengan mempertimbangkan upgrade aktif
-  let expectedAmount = product.depositAmount;
+  // Gunakan current product member, bukan product dari form
+  await member.populate("productId");
+  let currentProduct = member.productId;
+  let expectedAmount = currentProduct.depositAmount;
   let upgradeInfo = null;
   
   // Cek apakah ada upgrade aktif untuk member ini
@@ -118,7 +121,7 @@ const createSavings = asyncHandler(async (req, res) => {
     expectedAmount = activeUpgrade.newMonthlyAmount;
     upgradeInfo = {
       isUpgradePeriod: true,
-      oldAmount: product.depositAmount,
+      oldAmount: currentProduct.depositAmount,
       newAmount: activeUpgrade.newMonthlyAmount,
       compensation: activeUpgrade.compensationPerMonth
     };
@@ -163,10 +166,11 @@ const createSavings = asyncHandler(async (req, res) => {
   }
 
   console.log("✅ All validations passed, creating savings");
+  // PERBAIKAN: Gunakan productId dari current product member, bukan dari form
   const savings = new Savings({
     installmentPeriod,
     memberId,
-    productId,
+    productId: currentProduct._id, // Gunakan current product member
     amount,
     savingsDate,
     type,
