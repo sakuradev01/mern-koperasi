@@ -9,6 +9,15 @@ const Members = () => {
   const [upgradeStatuses, setUpgradeStatuses] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  
+  // Filter dan sorting states
+  const [searchTerm, setSearchTerm] = useState("");
+  const [genderFilter, setGenderFilter] = useState("");
+  const [productFilter, setProductFilter] = useState("");
+  const [sortField, setSortField] = useState("");
+  const [sortDirection, setSortDirection] = useState("asc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
   const [showModal, setShowModal] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [formData, setFormData] = useState({
@@ -95,6 +104,95 @@ const Members = () => {
 
     await Promise.all(promises);
     setUpgradeStatuses(statuses);
+  };
+
+  // Fungsi untuk sorting
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+    setCurrentPage(1); // Reset ke halaman pertama
+  };
+
+  // Fungsi untuk filtering dan sorting data
+  const getFilteredAndSortedMembers = () => {
+    let filteredMembers = members.filter((member) => {
+      // Filter berdasarkan search term (nama)
+      const matchesSearch = member.name.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      // Filter berdasarkan gender
+      const matchesGender = !genderFilter || member.gender === genderFilter;
+      
+      // Filter berdasarkan produk
+      const matchesProduct = !productFilter || member.productId === productFilter;
+      
+      return matchesSearch && matchesGender && matchesProduct;
+    });
+
+    // Sorting
+    if (sortField) {
+      filteredMembers.sort((a, b) => {
+        let aValue, bValue;
+        
+        switch (sortField) {
+          case "name":
+            aValue = a.name.toLowerCase();
+            bValue = b.name.toLowerCase();
+            break;
+          case "gender":
+            aValue = a.gender;
+            bValue = b.gender;
+            break;
+          case "product":
+            aValue = a.product?.title || "";
+            bValue = b.product?.title || "";
+            break;
+          case "totalSavings":
+            aValue = a.totalSavings || 0;
+            bValue = b.totalSavings || 0;
+            break;
+          case "city":
+            aValue = a.city || "";
+            bValue = b.city || "";
+            break;
+          default:
+            return 0;
+        }
+        
+        if (sortDirection === "asc") {
+          return aValue > bValue ? 1 : -1;
+        } else {
+          return aValue < bValue ? 1 : -1;
+        }
+      });
+    }
+
+    return filteredMembers;
+  };
+
+  // Pagination
+  const filteredMembers = getFilteredAndSortedMembers();
+  const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedMembers = filteredMembers.slice(startIndex, startIndex + itemsPerPage);
+
+  // Reset halaman saat filter berubah
+  const handleFilterChange = (filterType, value) => {
+    setCurrentPage(1);
+    switch (filterType) {
+      case "search":
+        setSearchTerm(value);
+        break;
+      case "gender":
+        setGenderFilter(value);
+        break;
+      case "product":
+        setProductFilter(value);
+        break;
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -220,6 +318,83 @@ const Members = () => {
         </button>
       </div>
 
+      {/* Filter dan Search */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Search */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              🔍 Cari Nama
+            </label>
+            <input
+              type="text"
+              placeholder="Ketik nama anggota..."
+              value={searchTerm}
+              onChange={(e) => handleFilterChange("search", e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+            />
+          </div>
+
+          {/* Filter Gender */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              👤 Filter Gender
+            </label>
+            <select
+              value={genderFilter}
+              onChange={(e) => handleFilterChange("gender", e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+            >
+              <option value="">Semua Gender</option>
+              <option value="L">Laki-laki</option>
+              <option value="P">Perempuan</option>
+            </select>
+          </div>
+
+          {/* Filter Produk */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              📦 Filter Produk
+            </label>
+            <select
+              value={productFilter}
+              onChange={(e) => handleFilterChange("product", e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+            >
+              <option value="">Semua Produk</option>
+              {products.map((product) => (
+                <option key={product._id} value={product._id}>
+                  {product.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Reset Filter */}
+          <div className="flex items-end">
+            <button
+              onClick={() => {
+                setSearchTerm("");
+                setGenderFilter("");
+                setProductFilter("");
+                setSortField("");
+                setSortDirection("asc");
+                setCurrentPage(1);
+              }}
+              className="w-full px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+            >
+              🔄 Reset Filter
+            </button>
+          </div>
+        </div>
+
+        {/* Info hasil filter */}
+        <div className="mt-4 text-sm text-gray-600">
+          Menampilkan {paginatedMembers.length} dari {filteredMembers.length} anggota
+          {filteredMembers.length !== members.length && ` (difilter dari ${members.length} total)`}
+        </div>
+      </div>
+
       <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-pink-100">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -228,26 +403,76 @@ const Members = () => {
               <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
                 UUID
               </th>
-              <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
-                Nama
+              <th 
+                className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider cursor-pointer hover:bg-pink-100 transition-colors"
+                onClick={() => handleSort("name")}
+              >
+                <div className="flex items-center gap-1">
+                  Nama
+                  {sortField === "name" && (
+                    <span className="text-pink-600">
+                      {sortDirection === "asc" ? "↑" : "↓"}
+                    </span>
+                  )}
+                </div>
               </th>
               <th className="hidden sm:table-cell px-3 sm:px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
                 Username
               </th>
-              <th className="hidden md:table-cell px-3 sm:px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
-                Gender
+              <th 
+                className="hidden md:table-cell px-3 sm:px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider cursor-pointer hover:bg-pink-100 transition-colors"
+                onClick={() => handleSort("gender")}
+              >
+                <div className="flex items-center gap-1">
+                  Gender
+                  {sortField === "gender" && (
+                    <span className="text-pink-600">
+                      {sortDirection === "asc" ? "↑" : "↓"}
+                    </span>
+                  )}
+                </div>
               </th>
               <th className="hidden lg:table-cell px-3 sm:px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
                 Phone
               </th>
-              <th className="hidden lg:table-cell px-3 sm:px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
-                City
+              <th 
+                className="hidden lg:table-cell px-3 sm:px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider cursor-pointer hover:bg-pink-100 transition-colors"
+                onClick={() => handleSort("city")}
+              >
+                <div className="flex items-center gap-1">
+                  City
+                  {sortField === "city" && (
+                    <span className="text-pink-600">
+                      {sortDirection === "asc" ? "↑" : "↓"}
+                    </span>
+                  )}
+                </div>
               </th>
-              <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
-                Produk
+              <th 
+                className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider cursor-pointer hover:bg-pink-100 transition-colors"
+                onClick={() => handleSort("product")}
+              >
+                <div className="flex items-center gap-1">
+                  Produk
+                  {sortField === "product" && (
+                    <span className="text-pink-600">
+                      {sortDirection === "asc" ? "↑" : "↓"}
+                    </span>
+                  )}
+                </div>
               </th>
-              <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
-                Total
+              <th 
+                className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider cursor-pointer hover:bg-pink-100 transition-colors"
+                onClick={() => handleSort("totalSavings")}
+              >
+                <div className="flex items-center gap-1">
+                  Total
+                  {sortField === "totalSavings" && (
+                    <span className="text-pink-600">
+                      {sortDirection === "asc" ? "↑" : "↓"}
+                    </span>
+                  )}
+                </div>
               </th>
               <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
                 Aksi
@@ -255,7 +480,7 @@ const Members = () => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {members.map((member) => (
+            {paginatedMembers.map((member) => (
               <tr key={member._id} className="hover:bg-pink-50 transition-colors">
                 <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 font-mono">
                   {member.uuid}
