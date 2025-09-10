@@ -545,24 +545,22 @@ const getStudentDashboardSavings = asyncHandler(async (req, res) => {
     `Searching savings for member UUID: ${member.uuid}, ID: ${member._id}`
   ); // Debug
 
-  // Method 1: Cari berdasarkan member._id langsung
+  // Method 1: Cari berdasarkan member._id langsung - AMBIL SEMUA STATUS
   let depositHistory = await Savings.find({
     memberId: member._id,
     type: "Setoran",
-    status: "Approved",
-  }).select("installmentPeriod amount proofFile");
+  }).select("installmentPeriod amount proofFile status");
 
   console.log(
     `Method 1 (by member._id): Found ${depositHistory.length} savings`
   ); // Debug
 
-  // Method 2: Cari semua savings dan filter berdasarkan UUID (untuk data yang dibuat admin)
+  // Method 2: Cari semua savings dan filter berdasarkan UUID (untuk data yang dibuat admin) - AMBIL SEMUA STATUS
   const allSavings = await Savings.find({
     type: "Setoran",
-    status: "Approved",
   })
     .populate("memberId", "uuid name")
-    .select("installmentPeriod amount proofFile memberId");
+    .select("installmentPeriod amount proofFile status memberId");
 
   const savingsByUuid = allSavings.filter(
     (saving) => saving.memberId && saving.memberId.uuid === member.uuid
@@ -586,17 +584,19 @@ const getStudentDashboardSavings = asyncHandler(async (req, res) => {
 
   depositHistory = uniqueSavings;
   console.log(
-    `Final result: Found ${depositHistory.length} unique approved savings for member ${member.uuid}`
+    `Final result: Found ${depositHistory.length} unique savings (all statuses) for member ${member.uuid}`
   ); // Debug
 
   // Map deposit history by installment period
   const realizationAmountMap = {};
   const realizationProofFileMap = {};
+  const realizationStatusMap = {};
 
   depositHistory.forEach((deposit) => {
     realizationAmountMap[deposit.installmentPeriod] = deposit.amount;
     realizationProofFileMap[deposit.installmentPeriod] = deposit.proofFile || 0;
-    console.log(`Period ${deposit.installmentPeriod}: ${deposit.amount}`); // Debug
+    realizationStatusMap[deposit.installmentPeriod] = deposit.status || "Pending";
+    console.log(`Period ${deposit.installmentPeriod}: ${deposit.amount} - Status: ${deposit.status}`); // Debug
   });
 
   // PERBAIKAN: Cek upgrade aktif untuk proyeksi yang benar
@@ -655,6 +655,7 @@ const getStudentDashboardSavings = asyncHandler(async (req, res) => {
         ? realizationAmountMap[i].toString()
         : 0,
       payment_proof: realizationProofFileMap[i] || 0,
+      status: realizationStatusMap[i] || "Not Submitted",
     });
   }
 
