@@ -78,9 +78,20 @@ jobs:
             # Copy the built frontend files to the Nginx web root
             sudo cp -r /home/${{ secrets.EC2_USER }}/app/client/dist/. /var/www/html/
 
+            # === COPY UPLOADS FOLDER ===
+            # Copy uploads folder from server to web root so static files can be accessed
+            sudo cp -r /home/${{ secrets.EC2_USER }}/app/server/uploads /var/www/html/ || true
+            
+            # Create uploads directory if it doesn't exist
+            sudo mkdir -p /var/www/html/uploads/savings/
+
             # Set proper permissions
             sudo chown -R www-data:www-data /var/www/html/
             sudo chmod -R 755 /var/www/html/
+            
+            # Set specific permissions for uploads folder
+            sudo chown -R www-data:www-data /var/www/html/uploads/
+            sudo chmod -R 755 /var/www/html/uploads/
 
             # Restart Nginx to apply the new configuration
             sudo systemctl restart nginx
@@ -97,3 +108,15 @@ jobs:
             # Enable PM2 to start on boot
             pm2 startup
             pm2 save
+
+            # === SYNC UPLOADS FOLDER ===
+            # Create a symlink or sync script to keep uploads folder updated
+            # This ensures new uploaded files are accessible via web
+            echo "#!/bin/bash" | sudo tee /usr/local/bin/sync-uploads.sh
+            echo "rsync -av /home/${{ secrets.EC2_USER }}/app/server/uploads/ /var/www/html/uploads/" | sudo tee -a /usr/local/bin/sync-uploads.sh
+            echo "chown -R www-data:www-data /var/www/html/uploads/" | sudo tee -a /usr/local/bin/sync-uploads.sh
+            echo "chmod -R 755 /var/www/html/uploads/" | sudo tee -a /usr/local/bin/sync-uploads.sh
+            sudo chmod +x /usr/local/bin/sync-uploads.sh
+            
+            # Run initial sync
+            sudo /usr/local/bin/sync-uploads.sh
