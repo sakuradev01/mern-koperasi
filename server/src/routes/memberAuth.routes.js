@@ -1,5 +1,5 @@
 import express from "express";
-import { getMemberToken, generateTestPayload, debugMemberAuth } from "../controllers/memberAuth.controller.js";
+import { getMemberToken, generateTestPayload, debugMemberAuth, getProofFile } from "../controllers/memberAuth.controller.js";
 
 const router = express.Router();
 
@@ -11,5 +11,8 @@ router.post("/generate-payload", generateTestPayload);
 
 // Debug endpoint untuk testing (development only)
 router.get("/debug/:uuid", debugMemberAuth);
+
+// Endpoint untuk mengakses file bukti simpanan
+router.get("/proof/:filename", getProofFile);
 
 export default router;

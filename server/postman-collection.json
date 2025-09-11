@@ -112,6 +112,25 @@
 							]
 						}
 					}
+				},
+				{
+					"name": "4. Get Proof File",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/member-auth/proof/{{proof_filename}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"member-auth",
+								"proof",
+								"{{proof_filename}}"
+							]
+						}
+					}
 				}
 			]
 		},
@@ -1036,6 +1055,10 @@
 		{
 			"key": "loan_product_id",
 			"value": ""
+		},
+		{
+			"key": "proof_filename",
+			"value": "proofFile-1757557163390-70348894.png"
 		}
 	]
 }

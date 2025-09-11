@@ -164,4 +164,71 @@ const debugMemberAuth = asyncHandler(async (req, res) => {
   }
 });
 
-export { getMemberToken, generateTestPayload, debugMemberAuth };
+// Get proof file for member savings
+const getProofFile = asyncHandler(async (req, res) => {
+  try {
+    const { filename } = req.params;
+    
+    // Validasi filename untuk keamanan
+    if (!filename || filename.includes('..') || filename.includes('/')) {
+      throw new ApiError(400, "Nama file tidak valid");
+    }
+    
+    // Validasi format file
+    const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'pdf'];
+    const fileExtension = filename.split('.').pop().toLowerCase();
+    
+    if (!allowedExtensions.includes(fileExtension)) {
+      throw new ApiError(400, "Format file tidak didukung");
+    }
+    
+    const fs = await import('fs');
+    const path = await import('path');
+    
+    // Path ke file
+    const filePath = path.join(process.cwd(), 'uploads', 'savings', filename);
+    
+    console.log(`🔍 Accessing proof file: ${filename}`);
+    console.log(`🔍 Full path: ${filePath}`);
+    
+    // Cek apakah file ada
+    if (!fs.existsSync(filePath)) {
+      console.log(`❌ File not found: ${filePath}`);
+      throw new ApiError(404, "File bukti tidak ditemukan");
+    }
+    
+    // Set headers yang sesuai berdasarkan tipe file
+    const mimeTypes = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg', 
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'pdf': 'application/pdf'
+    };
+    
+    const mimeType = mimeTypes[fileExtension] || 'application/octet-stream';
+    
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache 1 tahun
+    
+    // Untuk PDF, set header agar bisa dibuka di browser
+    if (fileExtension === 'pdf') {
+      res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    }
+    
+    console.log(`✅ Serving file: ${filename} (${mimeType})`);
+    
+    // Kirim file
+    res.sendFile(filePath);
+    
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    
+    console.error("Get proof file error:", error);
+    throw new ApiError(500, "Gagal mengakses file bukti");
+  }
+});
+
+export { getMemberToken, generateTestPayload, debugMemberAuth, getProofFile };
