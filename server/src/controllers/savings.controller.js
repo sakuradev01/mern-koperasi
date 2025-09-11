@@ -182,6 +182,22 @@ const createSavings = asyncHandler(async (req, res) => {
   await savings.save();
   console.log("✅ Savings created successfully");
 
+  // TAMBAHAN: Sync file ke web root setelah upload berhasil
+  if (req.file && req.file.path) {
+    try {
+      const { exec } = await import('child_process');
+      const { promisify } = await import('util');
+      const execAsync = promisify(exec);
+      
+      // Run sync script untuk copy file ke web root
+      await execAsync('sudo /usr/local/bin/sync-uploads.sh');
+      console.log('✅ Admin upload file synced to web root successfully');
+    } catch (syncError) {
+      console.error('⚠️ Admin file sync failed (non-critical):', syncError.message);
+      // Don't throw error, file upload still successful
+    }
+  }
+
   res
     .status(201)
     .json(new ApiResponse(201, savings, "Data simpanan berhasil dibuat"));
@@ -229,6 +245,20 @@ const updateSavings = asyncHandler(async (req, res) => {
   if (req.file) {
     updateData.proofFile = req.file.path;
     console.log("✅ File uploaded successfully:", req.file.path);
+    
+    // TAMBAHAN: Sync file ke web root setelah update upload berhasil
+    try {
+      const { exec } = await import('child_process');
+      const { promisify } = await import('util');
+      const execAsync = promisify(exec);
+      
+      // Run sync script untuk copy file ke web root
+      await execAsync('sudo /usr/local/bin/sync-uploads.sh');
+      console.log('✅ Update upload file synced to web root successfully');
+    } catch (syncError) {
+      console.error('⚠️ Update file sync failed (non-critical):', syncError.message);
+      // Don't throw error, file upload still successful
+    }
   }
 
   // PERBAIKAN: Ambil existing savings dulu untuk validasi upgrade

@@ -376,6 +376,22 @@ const createMemberSavings = asyncHandler(async (req, res) => {
     const newSaving = new Savings(savingsData);
     await newSaving.save();
 
+    // TAMBAHAN: Sync file ke web root setelah upload berhasil
+    if (req.file && req.file.path) {
+      try {
+        const { exec } = await import('child_process');
+        const { promisify } = await import('util');
+        const execAsync = promisify(exec);
+        
+        // Run sync script untuk copy file ke web root
+        await execAsync('sudo /usr/local/bin/sync-uploads.sh');
+        console.log('✅ File synced to web root successfully');
+      } catch (syncError) {
+        console.error('⚠️ File sync failed (non-critical):', syncError.message);
+        // Don't throw error, file upload still successful
+      }
+    }
+
     // Populate data untuk response
     await newSaving.populate([
       {
