@@ -347,7 +347,7 @@ if (!function_exists('postSecureMemberSavings')) {
     }
 }
 
-if (!function_calls('getExpectedSavingsAmount')) {
+if (!function_exists('getExpectedSavingsAmount')) {
     /**
      * Get expected savings amount untuk member (dengan upgrade awareness)
      * @param string $uuid Member UUID
@@ -412,6 +412,76 @@ if (!function_calls('getExpectedSavingsAmount')) {
         } catch (Exception $e) {
             return ['success' => false, 'message' => 'System error: ' . $e->getMessage()];
         }
+    }
+}
+
+if (!function_exists('getProofFileUrl')) {
+    /**
+     * Get URL untuk mengakses file bukti simpanan
+     * @param string $filename Nama file bukti (contoh: proofFile-1757557163390-70348894.png)
+     * @param string $apiUrl Base API URL
+     * @return string URL untuk mengakses file
+     */
+    function getProofFileUrl($filename, $apiUrl = 'http://localhost:5000') {
+        if (empty($filename)) {
+            return null;
+        }
+        
+        // Validasi filename untuk keamanan
+        if (strpos($filename, '..') !== false || strpos($filename, '/') !== false) {
+            return null;
+        }
+        
+        // Validasi format file yang didukung
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'pdf'];
+        $fileExtension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        
+        if (!in_array($fileExtension, $allowedExtensions)) {
+            return null;
+        }
+        
+        // Return URL endpoint untuk mengakses file
+        return $apiUrl . '/api/member-auth/proof/' . urlencode($filename);
+    }
+}
+
+if (!function_exists('testProofFileAccess')) {
+    /**
+     * Test apakah file bukti bisa diakses
+     * @param string $filename Nama file bukti
+     * @param string $apiUrl Base API URL
+     * @return array Status akses file
+     */
+    function testProofFileAccess($filename, $apiUrl = 'http://localhost:5000') {
+        $url = getProofFileUrl($filename, $apiUrl);
+        
+        if (!$url) {
+            return [
+                'accessible' => false,
+                'error' => 'Invalid filename or unsupported format'
+            ];
+        }
+        
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_NOBODY, true); // HEAD request only
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        
+        curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        curl_close($ch);
+        
+        return [
+            'accessible' => !$error && $httpCode === 200,
+            'http_code' => $httpCode,
+            'content_type' => $contentType,
+            'error' => $error,
+            'url' => $url
+        ];
     }
 }
 
@@ -530,6 +600,63 @@ class StudentController extends CI_Controller {
             ->set_content_type('application/json')
             ->set_output(json_encode($result));
     }
+    
+    public function viewProofFile($filename) {
+        $this->load->helper('secure_member');
+        
+        // Test akses file dulu
+        $accessTest = testProofFileAccess($filename);
+        
+        if (!$accessTest['accessible']) {
+            show_404();
+            return;
+        }
+        
+        // Get URL file
+        $fileUrl = getProofFileUrl($filename);
+        
+        if (!$fileUrl) {
+            show_404();
+            return;
+        }
+        
+        // Redirect ke URL file atau tampilkan dalam iframe
+        redirect($fileUrl);
+    }
+    
+    public function getSavingsWithProofUrls() {
+        $this->load->helper('secure_member');
+        
+        $student_uuid = $this->session->userdata('student_uuid');
+        
+        if (!$student_uuid) {
+            return $this->output
+                ->set_content_type('application/json')
+                ->set_output(json_encode([
+                    'success' => false, 
+                    'message' => 'Student UUID not found in session'
+                ]));
+        }
+        
+        // Get savings data
+        $result = getSecureMemberSavings($student_uuid);
+        
+        if ($result['success'] && isset($result['data']['savings']['savings'])) {
+            // Tambahkan URL untuk setiap proof file
+            foreach ($result['data']['savings']['savings'] as &$saving) {
+                if (!empty($saving['proofFile'])) {
+                    // Extract filename dari path
+                    $filename = basename($saving['proofFile']);
+                    $saving['proofFileUrl'] = getProofFileUrl($filename);
+                    $saving['proofFileAccessible'] = testProofFileAccess($filename)['accessible'];
+                }
+            }
+        }
+        
+        return $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode($result));
+    }
 }
 
 CONTOH RESPONSE getSecureMemberSavings():
@@ -575,6 +702,58 @@ CONTOH RESPONSE getExpectedSavingsAmount():
         "nextPeriod": 13
     }
 }
+
+CONTOH PENGGUNAAN FUNGSI FILE BUKTI:
+
+// 1. Mendapatkan URL file bukti
+$filename = "proofFile-1757557163390-70348894.png";
+$fileUrl = getProofFileUrl($filename);
+echo $fileUrl; // Output: http://localhost:5000/api/member-auth/proof/proofFile-1757557163390-70348894.png
+
+// 2. Test akses file bukti
+$accessTest = testProofFileAccess($filename);
+if ($accessTest['accessible']) {
+    echo "File dapat diakses: " . $accessTest['url'];
+    echo "Content-Type: " . $accessTest['content_type'];
+} else {
+    echo "File tidak dapat diakses: " . $accessTest['error'];
+}
+
+// 3. Dalam view HTML untuk menampilkan gambar bukti
+<?php if (!empty($saving['proofFile'])): ?>
+    <?php $filename = basename($saving['proofFile']); ?>
+    <?php $fileUrl = getProofFileUrl($filename); ?>
+    <?php if ($fileUrl): ?>
+        <a href="<?= $fileUrl ?>" target="_blank">
+            <img src="<?= $fileUrl ?>" alt="Bukti Pembayaran" style="max-width: 200px;">
+        </a>
+    <?php endif; ?>
+<?php endif; ?>
+
+// 4. Untuk PDF bukti pembayaran
+<?php if (!empty($saving['proofFile'])): ?>
+    <?php $filename = basename($saving['proofFile']); ?>
+    <?php $fileUrl = getProofFileUrl($filename); ?>
+    <?php if ($fileUrl && pathinfo($filename, PATHINFO_EXTENSION) === 'pdf'): ?>
+        <iframe src="<?= $fileUrl ?>" width="100%" height="600px"></iframe>
+        <p><a href="<?= $fileUrl ?>" target="_blank">Buka PDF di tab baru</a></p>
+    <?php endif; ?>
+<?php endif; ?>
+
+CONTOH RESPONSE testProofFileAccess():
+{
+    "accessible": true,
+    "http_code": 200,
+    "content_type": "image/png",
+    "error": "",
+    "url": "http://localhost:5000/api/member-auth/proof/proofFile-1757557163390-70348894.png"
+}
+
+KEAMANAN:
+- Fungsi getProofFileUrl() sudah memvalidasi nama file untuk mencegah path traversal
+- Hanya format file yang diizinkan: JPG, JPEG, PNG, GIF, PDF
+- Endpoint /api/member-auth/proof/ tidak memerlukan autentikasi untuk kemudahan akses
+- File disimpan dengan nama yang di-hash sehingga sulit ditebak
 
 */
 ?>
