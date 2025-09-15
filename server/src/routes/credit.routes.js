@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   getCredits,
   getCreditById,
+  getCreditPayments,
   getCreditsByMemberUuid,
   createCredit,
   updateCredit,
@@ -30,6 +31,9 @@ router.route("/:id")
 
 router.route("/member-by-uuid/:memberUuid")
   .get(getCreditsByMemberUuid);
+
+router.route("/:id/payments")
+  .get(getCreditPayments);
 
 // Route payInstallment dihapus karena pembayaran sekarang melalui credit-payments
 

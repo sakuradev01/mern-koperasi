@@ -183,7 +183,7 @@ const Credits = () => {
   };
 
   // Handler untuk pilih kredit dari member
-  const handleCreditChange = (creditId) => {
+  const handleCreditChange = async (creditId) => {
     if (!creditId) {
       setFormData(prev => ({ ...prev, creditId: "", period: 1, amount: "", notes: "" }));
       setSelectedCredit(null);
@@ -193,20 +193,53 @@ const Credits = () => {
     const credit = credits.find(c => c._id === creditId);
     if (!credit) return;
 
-    // Cari periode selanjutnya yang belum dibayar
-    const unpaidInstallments = credit.installments?.filter(inst => inst.status !== "Paid") || [];
-    const nextPeriod = unpaidInstallments.length > 0 ? unpaidInstallments[0].period : 1;
-    const installmentAmount = credit.monthlyInstallment || 0;
+    // Get existing payments for this credit
+    try {
+      const token = localStorage.getItem("token");
+      const paymentsResponse = await axios.get(
+        `${API_URL}/api/credits/${creditId}/payments`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
 
-    setFormData(prev => ({
-      ...prev,
-      creditId: creditId,
-      period: nextPeriod,
-      amount: installmentAmount,
-      notes: `Pembayaran angsuran periode ${nextPeriod} - ${credit.productName}`
-    }));
-    
-    setSelectedCredit(credit);
+      const payments = paymentsResponse.data?.data?.payments || [];
+
+      // Find which periods have been paid (approved)
+      const paidPeriods = payments
+        .filter(payment => payment.status === "Approved")
+        .map(payment => payment.installmentPeriod);
+
+      // Find the next period that hasn't been paid yet
+      let nextPeriod = 1;
+      for (let i = 1; i <= credit.tenor; i++) {
+        if (!paidPeriods.includes(i)) {
+          nextPeriod = i;
+          break;
+        }
+      }
+
+      const installmentAmount = credit.monthlyInstallment || 0;
+
+      setFormData(prev => ({
+        ...prev,
+        creditId: creditId,
+        period: nextPeriod,
+        amount: installmentAmount,
+        notes: `Pembayaran angsuran periode ${nextPeriod} - ${credit.productName}`
+      }));
+
+      setSelectedCredit(credit);
+    } catch (error) {
+      console.error("Error fetching payments:", error);
+      // Fallback to period 1 if there's an error
+      setFormData(prev => ({
+        ...prev,
+        creditId: creditId,
+        period: 1,
+        amount: credit.monthlyInstallment || 0,
+        notes: `Pembayaran angsuran periode 1 - ${credit.productName}`
+      }));
+      setSelectedCredit(credit);
+    }
   };
 
   // Handler untuk submit form

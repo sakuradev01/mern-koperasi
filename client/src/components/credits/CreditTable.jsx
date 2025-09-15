@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import axios from "axios";
 import PropTypes from "prop-types";
 
 const CreditTable = ({ credits, onPayInstallment, onEditCredit, onDeleteCredit, viewOnly = false }) => {
   const [expandedCredit, setExpandedCredit] = useState(null);
+  const [paymentsData, setPaymentsData] = useState({});
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("id-ID", {
@@ -19,6 +21,65 @@ const CreditTable = ({ credits, onPayInstallment, onEditCredit, onDeleteCredit, 
       year: "numeric",
     });
   };
+
+  // Fetch payment data for a specific credit
+  const fetchPayments = async (creditId) => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/credits/${creditId}/payments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.data.success) {
+        setPaymentsData(prev => ({
+          ...prev,
+          [creditId]: response.data.data.payments || []
+        }));
+      }
+    } catch (error) {
+      console.error("Error fetching payments:", error);
+    }
+  };
+
+  // Generate installment schedule from credit data
+  const generateInstallmentSchedule = (credit) => {
+    const schedule = [];
+    const payments = paymentsData[credit._id] || [];
+
+    // Create map of payments by period
+    const paymentsMap = {};
+    payments.forEach(payment => {
+      if (payment.status === "Approved") {
+        paymentsMap[payment.installmentPeriod] = payment;
+      }
+    });
+
+    // Generate schedule for all periods
+    for (let period = 1; period <= credit.tenor; period++) {
+      const payment = paymentsMap[period];
+      const dueDate = new Date(credit.startDate);
+      dueDate.setMonth(dueDate.getMonth() + period);
+
+      schedule.push({
+        period,
+        dueDate,
+        amount: credit.monthlyInstallment,
+        paidAmount: payment ? payment.amount : 0,
+        status: payment ? "Paid" : "Pending",
+        proofFile: payment?.proofFile || null,
+        paymentDate: payment?.paymentDate || null
+      });
+    }
+
+    return schedule;
+  };
+
+  // Auto-fetch payments when credit is expanded
+  useEffect(() => {
+    if (expandedCredit) {
+      fetchPayments(expandedCredit);
+    }
+  }, [expandedCredit]);
 
   const getStatusBadge = (status) => {
     const statusMap = {
@@ -191,7 +252,7 @@ const CreditTable = ({ credits, onPayInstallment, onEditCredit, onDeleteCredit, 
                 <h5 className="font-semibold text-gray-900 mb-3">
                   📋 Jadwal Angsuran
                 </h5>
-                
+
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-sm">
                     <thead>
@@ -205,7 +266,7 @@ const CreditTable = ({ credits, onPayInstallment, onEditCredit, onDeleteCredit, 
                       </tr>
                     </thead>
                     <tbody>
-                      {credit.installments?.map((installment) => (
+                      {generateInstallmentSchedule(credit).map((installment) => (
                         <tr key={installment.period} className="border-b border-gray-200">
                           <td className="py-2 px-3">
                             <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-semibold text-xs">
@@ -234,7 +295,11 @@ const CreditTable = ({ credits, onPayInstallment, onEditCredit, onDeleteCredit, 
                               </button>
                             )}
                             {installment.proofFile && (
-                              <button className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 transition-colors">
+                              <button
+                                onClick={() => window.open(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/uploads/savings/${installment.proofFile}`, '_blank')}
+                                className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 transition-colors"
+                                title="Lihat Bukti Pembayaran"
+                              >
                                 👁️ Bukti
                               </button>
                             )}

@@ -71,6 +71,19 @@ const getCreditById = asyncHandler(async (req, res) => {
   );
 });
 
+// Get payment details by credit ID
+const getCreditPayments = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const payments = await CreditPayment.find({ creditId: id })
+    .populate('memberId', 'name uuid phone')
+    .sort({ installmentPeriod: 1 });
+
+  return res.status(200).json(
+    new ApiResponse(200, { payments }, "Detail pembayaran kredit berhasil diambil")
+  );
+});
+
 // Get credits by member UUID
 const getCreditsByMemberUuid = asyncHandler(async (req, res) => {
   const { memberUuid } = req.params;
@@ -324,10 +337,10 @@ const calculateInstallment = asyncHandler(async (req, res) => {
 export {
   getCredits,
   getCreditById,
+  getCreditPayments,
   getCreditsByMemberUuid,
   createCredit,
   updateCredit,
   deleteCredit,
-  payInstallment,
   calculateInstallment
 };
