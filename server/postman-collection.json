@@ -1019,7 +1019,26 @@
 								}
 							]
 						}
-					}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.credits && response.data.credits.length > 0) {",
+									"        pm.collectionVariables.set('credit_id', response.data.credits[0]._id);",
+									"        pm.collectionVariables.set('member_uuid', response.data.credits[0].memberUuid);",
+									"        console.log('Credit ID saved:', response.data.credits[0]._id);",
+									"        console.log('Member UUID saved:', response.data.credits[0].memberUuid);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
 				},
 				{
 					"name": "Create Credit",
@@ -1049,7 +1068,26 @@
 								"credits"
 							]
 						}
-					}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data._id) {",
+									"        pm.collectionVariables.set('credit_id', response.data._id);",
+									"        pm.collectionVariables.set('member_uuid', response.data.memberUuid);",
+									"        console.log('Created Credit ID saved:', response.data._id);",
+									"        console.log('Member UUID saved:', response.data.memberUuid);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
 				},
 				{
 					"name": "Get Credit by ID",
@@ -1153,25 +1191,17 @@
 					}
 				},
 				{
-					"name": "Pay Installment",
+					"name": "Get Credit Payments by Credit ID",
 					"request": {
-						"method": "PATCH",
+						"method": "GET",
 						"header": [
 							{
 								"key": "Authorization",
 								"value": "Bearer {{adminToken}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
 							}
 						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"amount\": 1250000,\n  \"proofFile\": \"bukti-bayar-periode-1.jpg\",\n  \"notes\": \"Pembayaran cicilan periode 1 via transfer bank\"\n}"
-						},
 						"url": {
-							"raw": "{{base_url}}/api/credits/{{credit_id}}/pay/1",
+							"raw": "{{base_url}}/api/credits/{{credit_id}}/payments",
 							"host": [
 								"{{base_url}}"
 							],
@@ -1179,8 +1209,7 @@
 								"api",
 								"credits",
 								"{{credit_id}}",
-								"pay",
-								"1"
+								"payments"
 							]
 						}
 					}
@@ -1212,6 +1241,356 @@
 								"api",
 								"credits",
 								"calculate"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Credit Payments Management (Admin)",
+			"item": [
+				{
+					"name": "Get All Credit Payments",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/credit-payments?page=1&limit=10",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"credit-payments"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								},
+								{
+									"key": "status",
+									"value": "Pending",
+									"disabled": true
+								},
+								{
+									"key": "memberUuid",
+									"value": "JPYG25689",
+									"disabled": true
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.payments && response.data.payments.length > 0) {",
+									"        pm.collectionVariables.set('credit_payment_id', response.data.payments[0]._id);",
+									"        console.log('Credit Payment ID saved:', response.data.payments[0]._id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Create Credit Payment (with file upload)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "memberUuid",
+									"value": "JPYG25689",
+									"type": "text"
+								},
+								{
+									"key": "creditId",
+									"value": "{{credit_id}}",
+									"type": "text"
+								},
+								{
+									"key": "installmentPeriod",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "amount",
+									"value": "1250000",
+									"type": "text"
+								},
+								{
+									"key": "paymentDate",
+									"value": "2024-01-15",
+									"type": "text"
+								},
+								{
+									"key": "description",
+									"value": "Pembayaran angsuran periode 1",
+									"type": "text"
+								},
+								{
+									"key": "status",
+									"value": "Pending",
+									"type": "text"
+								},
+								{
+									"key": "proofFile",
+									"src": "/path/to/proof/file.jpg",
+									"type": "file"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/credit-payments",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"credit-payments"
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data._id) {",
+									"        pm.collectionVariables.set('credit_payment_id', response.data._id);",
+									"        console.log('Created Credit Payment ID saved:', response.data._id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Get Credit Payment by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/credit-payments/{{credit_payment_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"credit-payments",
+								"{{credit_payment_id}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Credit Payment (with file upload)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "memberUuid",
+									"value": "JPYG25689",
+									"type": "text"
+								},
+								{
+									"key": "creditId",
+									"value": "{{credit_id}}",
+									"type": "text"
+								},
+								{
+									"key": "installmentPeriod",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "amount",
+									"value": "1250000",
+									"type": "text"
+								},
+								{
+									"key": "paymentDate",
+									"value": "2024-01-15",
+									"type": "text"
+								},
+								{
+									"key": "description",
+									"value": "Updated pembayaran angsuran periode 1",
+									"type": "text"
+								},
+								{
+									"key": "status",
+									"value": "Approved",
+									"type": "text"
+								},
+								{
+									"key": "proofFile",
+									"src": "/path/to/updated/proof/file.jpg",
+									"type": "file"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/credit-payments/{{credit_payment_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"credit-payments",
+								"{{credit_payment_id}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Approve Credit Payment",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"status\": \"Approved\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/credit-payments/{{credit_payment_id}}/status",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"credit-payments",
+								"{{credit_payment_id}}",
+								"status"
+							]
+						}
+					}
+				},
+				{
+					"name": "Reject Credit Payment",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"status\": \"Rejected\",\n  \"rejectionReason\": \"Bukti pembayaran tidak valid\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/credit-payments/{{credit_payment_id}}/status",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"credit-payments",
+								"{{credit_payment_id}}",
+								"status"
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Credit Payment",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/credit-payments/{{credit_payment_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"credit-payments",
+								"{{credit_payment_id}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Credit Payments by Member UUID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/credit-payments/member/{{member_uuid}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"credit-payments",
+								"member",
+								"{{member_uuid}}"
 							]
 						}
 					}
@@ -1306,6 +1685,18 @@
 		{
 			"key": "proof_filename",
 			"value": "proofFile-1757557163390-70348894.png"
+		},
+		{
+			"key": "credit_id",
+			"value": ""
+		},
+		{
+			"key": "member_uuid",
+			"value": ""
+		},
+		{
+			"key": "credit_payment_id",
+			"value": ""
 		}
 	]
 }
