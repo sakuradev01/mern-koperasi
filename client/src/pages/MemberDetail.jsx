@@ -2,21 +2,60 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../api/index.jsx";
 import ProductUpgradeCard from "../components/ProductUpgradeCard.jsx";
+import { CreditModal, CreditTable } from "../components/credits/index.jsx";
 
 const MemberDetail = () => {
   const { uuid } = useParams();
   const navigate = useNavigate();
   const [memberData, setMemberData] = useState(null);
   const [savingsData, setSavingsData] = useState([]);
+  const [creditsData, setCreditsData] = useState([]);
   const [upgradeHistory, setUpgradeHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showProofModal, setShowProofModal] = useState(false);
   const [selectedProof, setSelectedProof] = useState(null);
+  const [activeTab, setActiveTab] = useState("simpanan"); // "simpanan" or "kredit"
+  const [showCreditModal, setShowCreditModal] = useState(false);
+  const [editingCredit, setEditingCredit] = useState(null);
 
   // Handler untuk refresh data setelah upgrade
   const handleUpgradeSuccess = () => {
     fetchMemberDetail();
+  };
+
+  // Handler untuk refresh data setelah credit action
+  const handleCreditSuccess = () => {
+    fetchMemberCredits();
+  };
+
+  // Handler untuk pay installment
+  const handlePayInstallment = (creditId, period) => {
+    // TODO: Implement payment modal
+    console.log("Pay installment:", creditId, period);
+  };
+
+  // Handler untuk edit credit
+  const handleEditCredit = (credit) => {
+    setEditingCredit(credit);
+    setShowCreditModal(true);
+  };
+
+  // Handler untuk delete credit
+  const handleDeleteCredit = async (creditId, productName) => {
+    if (window.confirm(`Apakah Anda yakin ingin menghapus kredit "${productName}"?`)) {
+      try {
+        const response = await api.delete(`/api/credits/${creditId}`);
+        if (response.data.success) {
+          handleCreditSuccess();
+          // Show success message or toast
+          console.log("Credit deleted successfully");
+        }
+      } catch (error) {
+        console.error("Delete credit error:", error);
+        alert("Gagal menghapus kredit: " + (error.response?.data?.message || error.message));
+      }
+    }
   };
 
   useEffect(() => {
@@ -28,6 +67,7 @@ const MemberDetail = () => {
   useEffect(() => {
     if (memberData) {
       fetchMemberSavings();
+      fetchMemberCredits();
     }
   }, [memberData]);
 
@@ -190,6 +230,31 @@ const MemberDetail = () => {
     }
   };
 
+  const fetchMemberCredits = async () => {
+    try {
+      if (memberData && memberData.uuid) {
+        console.log("Fetching credits for member UUID:", memberData.uuid);
+        
+        const response = await api.get(
+          `/api/credits/member-by-uuid/${memberData.uuid}`
+        );
+        console.log("Credits response:", response.data);
+
+        if (response.data && response.data.success && response.data.data) {
+          const creditsArray = response.data.data.credits || [];
+          setCreditsData(creditsArray);
+        } else {
+          setCreditsData([]);
+        }
+      } else {
+        setCreditsData([]);
+      }
+    } catch (err) {
+      console.error("Member credits fetch error:", err);
+      setCreditsData([]);
+    }
+  };
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
@@ -349,16 +414,42 @@ const MemberDetail = () => {
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto">
       {/* Header dengan tombol kembali */}
-      <div className="flex items-center mb-6">
-        <button
-          onClick={() => navigate("/master/anggota")}
-          className="mr-4 p-2 text-pink-600 hover:text-pink-800 hover:bg-pink-50 rounded-lg transition-colors"
-        >
-          ← Kembali
-        </button>
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-          📊 Detail Tabungan Siswa
-        </h1>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center">
+          <button
+            onClick={() => navigate("/master/anggota")}
+            className="mr-4 p-2 text-pink-600 hover:text-pink-800 hover:bg-pink-50 rounded-lg transition-colors"
+          >
+            ← Kembali
+          </button>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+            📊 Detail {activeTab === "simpanan" ? "Tabungan" : "Kredit"} Siswa
+          </h1>
+        </div>
+        
+        {/* Toggle Button */}
+        <div className="flex items-center bg-gray-100 rounded-lg p-1">
+          <button
+            onClick={() => setActiveTab("simpanan")}
+            className={`px-4 py-2 rounded-md transition-colors ${
+              activeTab === "simpanan"
+                ? "bg-white text-pink-600 shadow-sm font-medium"
+                : "text-gray-600 hover:text-gray-800"
+            }`}
+          >
+            💰 Simpanan
+          </button>
+          <button
+            onClick={() => setActiveTab("kredit")}
+            className={`px-4 py-2 rounded-md transition-colors ${
+              activeTab === "kredit"
+                ? "bg-white text-blue-600 shadow-sm font-medium"
+                : "text-gray-600 hover:text-gray-800"
+            }`}
+          >
+            💳 Kredit
+          </button>
+        </div>
       </div>
 
       {/* Profile Card */}
@@ -420,14 +511,16 @@ const MemberDetail = () => {
         </div>
       </div>
 
-      {/* Product Upgrade Card */}
-      <ProductUpgradeCard 
-        memberData={memberData} 
-        onUpgradeSuccess={handleUpgradeSuccess}
-      />
+      {/* Product Upgrade Card - Hanya untuk tab simpanan */}
+      {activeTab === "simpanan" && (
+        <ProductUpgradeCard 
+          memberData={memberData} 
+          onUpgradeSuccess={handleUpgradeSuccess}
+        />
+      )}
 
-      {/* Upgrade History Card */}
-      {upgradeHistory.length > 0 && (
+      {/* Upgrade History Card - Hanya untuk tab simpanan */}
+      {activeTab === "simpanan" && upgradeHistory.length > 0 && (
         <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg shadow-sm border border-purple-200 p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -518,7 +611,8 @@ const MemberDetail = () => {
       )}
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+      {activeTab === "simpanan" && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center">
             <div className="p-3 bg-blue-100 rounded-full">
@@ -569,9 +663,13 @@ const MemberDetail = () => {
             </div>
           </div>
         </div>
-      </div>
+        </div>
+      )}
 
-      {/* Tabel Tabungan */}
+      {/* Konten berdasarkan tab aktif */}
+      {activeTab === "simpanan" ? (
+        <>
+          {/* Tabel Tabungan */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 bg-gradient-to-r from-pink-50 to-rose-50 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">
@@ -717,6 +815,52 @@ const MemberDetail = () => {
           </div>
         </div>
       )}
+        </>
+      ) : (
+        <>
+          {/* Kredit Section */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  💳 Data Kredit Pinjaman
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Kelola kredit dan angsuran member
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCreditModal(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+              >
+                ➕ Tambah Kredit
+              </button>
+            </div>
+            
+            <CreditTable
+              credits={creditsData}
+              onPayInstallment={handlePayInstallment}
+              onEditCredit={handleEditCredit}
+              onDeleteCredit={handleDeleteCredit}
+            />
+          </div>
+        </>
+      )}
+
+      {/* Modal untuk Kredit */}
+      <CreditModal
+        isOpen={showCreditModal}
+        onClose={() => {
+          setShowCreditModal(false);
+          setEditingCredit(null);
+        }}
+        onSuccess={() => {
+          handleCreditSuccess();
+          setEditingCredit(null);
+        }}
+        memberData={memberData}
+        creditData={editingCredit}
+      />
 
       {/* Modal Popup untuk Bukti Pembayaran */}
       {showProofModal && selectedProof && (

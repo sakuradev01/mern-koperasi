@@ -972,6 +972,253 @@
 			]
 		},
 		{
+			"name": "Credit Management (Admin)",
+			"item": [
+				{
+					"name": "Get All Credits",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/credits?page=1&limit=10",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"credits"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								},
+								{
+									"key": "status",
+									"value": "Active",
+									"disabled": true
+								},
+								{
+									"key": "memberUuid",
+									"value": "JPYG25689",
+									"disabled": true
+								},
+								{
+									"key": "search",
+									"value": "laptop",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Credit",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"memberUuid\": \"JPYG25689\",\n  \"productName\": \"Laptop ASUS ROG Gaming\",\n  \"principalAmount\": 15000000,\n  \"interestRate\": 12,\n  \"tenor\": 12,\n  \"productLink\": \"https://tokopedia.com/laptop-asus-rog\",\n  \"description\": \"Kredit laptop untuk kebutuhan gaming dan desain\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/credits",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"credits"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Credit by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/credits/{{credit_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"credits",
+								"{{credit_id}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Credit",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"productName\": \"Laptop ASUS ROG Gaming Updated\",\n  \"principalAmount\": 18000000,\n  \"interestRate\": 10,\n  \"tenor\": 18,\n  \"status\": \"Active\",\n  \"description\": \"Updated description\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/credits/{{credit_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"credits",
+								"{{credit_id}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Credit",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/credits/{{credit_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"credits",
+								"{{credit_id}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Credits by Member UUID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/credits/member-by-uuid/{{member_uuid}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"credits",
+								"member-by-uuid",
+								"{{member_uuid}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Pay Installment",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"amount\": 1250000,\n  \"proofFile\": \"bukti-bayar-periode-1.jpg\",\n  \"notes\": \"Pembayaran cicilan periode 1 via transfer bank\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/credits/{{credit_id}}/pay/1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"credits",
+								"{{credit_id}}",
+								"pay",
+								"1"
+							]
+						}
+					}
+				},
+				{
+					"name": "Calculate Installment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"principalAmount\": 12000000,\n  \"interestRate\": 12,\n  \"tenor\": 12\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/credits/calculate",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"credits",
+								"calculate"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
 			"name": "Public API",
 			"item": [
 				{
