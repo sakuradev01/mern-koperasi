@@ -11,6 +11,7 @@ import loanProductRoutes from "./loanProduct.routes.js";
 import publicRoutes from "./public.routes.js";
 import productUpgradeRoutes from "./productUpgrade.routes.js";
 import creditRoutes from "./credit.routes.js";
+import creditPaymentRoutes from "./creditPayment.routes.js";
 
 router.use("/auth", authRoutes);
 router.use("/members", memberRoutes);
@@ -21,6 +22,7 @@ router.use("/savings", savingsRoutes);
 router.use("/loan-products", loanProductRoutes);
 router.use("/product-upgrade", productUpgradeRoutes);
 router.use("/credits", creditRoutes);
+router.use("/credit-payments", creditPaymentRoutes);
 
 // Public API routes (tanpa authentication)
 router.use("/public", publicRoutes);

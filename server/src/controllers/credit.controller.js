@@ -78,8 +78,29 @@ const getCreditsByMemberUuid = asyncHandler(async (req, res) => {
     .populate('memberId', 'name uuid phone')
     .sort({ createdAt: -1 });
 
+  // Manually calculate virtual fields untuk memastikan ter-include
+  const creditsWithVirtuals = credits.map(credit => {
+    const creditObj = credit.toObject({ virtuals: true });
+    
+    // Manual calculation untuk memastikan akurat
+    const totalPaid = credit.installments.reduce((total, installment) => {
+      return total + (installment.paidAmount || 0);
+    }, 0);
+    
+    const paymentProgress = credit.totalAmount > 0 
+      ? Math.round((totalPaid / credit.totalAmount) * 100) 
+      : 0;
+    
+    return {
+      ...creditObj,
+      totalPaid,
+      paymentProgress,
+      remainingAmount: credit.totalAmount - totalPaid
+    };
+  });
+
   return res.status(200).json(
-    new ApiResponse(200, { credits }, "Data kredit member berhasil diambil")
+    new ApiResponse(200, { credits: creditsWithVirtuals }, "Data kredit member berhasil diambil")
   );
 });
 
@@ -202,6 +223,8 @@ const payInstallment = asyncHandler(async (req, res) => {
   const { id, period } = req.params;
   const { amount, proofFile = "", notes = "" } = req.body;
 
+  console.log("Pay installment request:", { id, period, amount, proofFile, notes });
+
   const credit = await Credit.findById(id);
   if (!credit) {
     throw new ApiError(404, "Kredit tidak ditemukan");
@@ -212,16 +235,22 @@ const payInstallment = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Periode installment tidak ditemukan");
   }
 
+  console.log("Before update:", { 
+    period: installment.period, 
+    oldPaidAmount: installment.paidAmount,
+    newAmount: amount 
+  });
+
   // Update installment
-  installment.paidAmount = amount;
+  installment.paidAmount = parseFloat(amount) || 0;
   installment.paidDate = new Date();
   installment.proofFile = proofFile;
   installment.notes = notes;
 
   // Update status based on payment
-  if (amount >= installment.amount) {
+  if (installment.paidAmount >= installment.amount) {
     installment.status = "Paid";
-  } else if (amount > 0) {
+  } else if (installment.paidAmount > 0) {
     installment.status = "Partial";
   }
 
@@ -232,6 +261,17 @@ const payInstallment = asyncHandler(async (req, res) => {
   }
 
   await credit.save();
+
+  // Recalculate progress
+  const totalPaid = credit.installments.reduce((total, inst) => {
+    return total + (inst.paidAmount || 0);
+  }, 0);
+
+  console.log("After update:", { 
+    totalPaid, 
+    totalAmount: credit.totalAmount,
+    progress: Math.round((totalPaid / credit.totalAmount) * 100)
+  });
 
   const updatedCredit = await Credit.findById(id).populate('memberId', 'name uuid phone');
 

@@ -29,10 +29,10 @@ const MemberDetail = () => {
     fetchMemberCredits();
   };
 
-  // Handler untuk pay installment
+  // Handler untuk pay installment - redirect to credits page
   const handlePayInstallment = (creditId, period) => {
-    // TODO: Implement payment modal
-    console.log("Pay installment:", creditId, period);
+    // Redirect to credits page with pre-selected credit
+    window.open(`/kredit-pinjaman?creditId=${creditId}&period=${period}`, '_blank');
   };
 
   // Handler untuk edit credit
@@ -316,6 +316,27 @@ const MemberDetail = () => {
       return total + (parseInt(period.projection) || 0);
     }, 0);
   };
+
+  // Calculate credit summary data
+  const calculateCreditSummary = () => {
+    const totalCredits = creditsData.length;
+    const activeCredits = creditsData.filter(c => c.status === "Active").length;
+    const completedCredits = creditsData.filter(c => c.status === "Completed").length;
+    const totalPrincipalAmount = creditsData.reduce((sum, c) => sum + (c.principalAmount || 0), 0);
+    const totalPaidAmount = creditsData.reduce((sum, c) => sum + (c.totalPaid || 0), 0);
+    const totalRemainingAmount = creditsData.reduce((sum, c) => sum + (c.remainingAmount || 0), 0);
+
+    return {
+      totalCredits,
+      activeCredits,
+      completedCredits,
+      totalPrincipalAmount,
+      totalPaidAmount,
+      totalRemainingAmount
+    };
+  };
+
+  const creditSummary = calculateCreditSummary();
 
   const handleShowProof = (proofFile, period) => {
     if (proofFile && proofFile !== "0") {
@@ -818,6 +839,34 @@ const MemberDetail = () => {
         </>
       ) : (
         <>
+          {/* Credit Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h3 className="text-sm font-medium text-gray-500">Total Pinjaman</h3>
+              <p className="text-2xl font-bold text-blue-600">
+                {formatCurrency(creditSummary.totalPrincipalAmount)}
+              </p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h3 className="text-sm font-medium text-gray-500">Sudah Dibayar</h3>
+              <p className="text-2xl font-bold text-green-600">
+                {formatCurrency(creditSummary.totalPaidAmount)}
+              </p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h3 className="text-sm font-medium text-gray-500">Sisa Pinjaman</h3>
+              <p className="text-2xl font-bold text-orange-600">
+                {formatCurrency(creditSummary.totalRemainingAmount)}
+              </p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h3 className="text-sm font-medium text-gray-500">Kredit Aktif</h3>
+              <p className="text-2xl font-bold text-purple-600">
+                {creditSummary.activeCredits} / {creditSummary.totalCredits}
+              </p>
+            </div>
+          </div>
+
           {/* Kredit Section */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">

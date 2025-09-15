@@ -18,6 +18,11 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
       path: "/simpanan",
     },
     {
+      title: "Kredit Pinjaman",
+      icon: "💳",
+      path: "/kredit-pinjaman",
+    },
+    {
       title: "Master Data",
       icon: "📋",
       children: [

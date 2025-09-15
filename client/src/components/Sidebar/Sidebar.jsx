@@ -27,6 +27,11 @@ const Sidebar = () => {
       ],
     },
     {
+      name: "Kredit Pinjaman",
+      icon: "💳",
+      path: "/kredit-pinjaman",
+    },
+    {
       name: "Master Data",
       icon: "📋",
       path: "/master",
