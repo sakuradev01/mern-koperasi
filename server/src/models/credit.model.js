@@ -109,11 +109,10 @@ const creditSchema = new mongoose.Schema({
 creditSchema.index({ memberUuid: 1, status: 1 });
 creditSchema.index({ "installments.dueDate": 1 });
 
-// Virtual untuk menghitung total yang sudah dibayar
+// Virtual untuk menghitung total yang sudah dibayar dari credit-payments
 creditSchema.virtual("totalPaid").get(function() {
-  return this.installments.reduce((total, installment) => {
-    return total + (installment.paidAmount || 0);
-  }, 0);
+  // This will be populated by the controller
+  return this._totalPaid || 0;
 });
 
 // Virtual untuk menghitung sisa yang belum dibayar
@@ -126,6 +125,36 @@ creditSchema.virtual("paymentProgress").get(function() {
   if (this.totalAmount === 0) return 0;
   return Math.round((this.totalPaid / this.totalAmount) * 100);
 });
+
+// Static method untuk menghitung total paid dari credit-payments
+creditSchema.statics.calculateTotalPaid = async function(creditId) {
+  try {
+    const { CreditPayment } = await import("./creditPayment.model.js");
+    const result = await CreditPayment.aggregate([
+      { $match: { creditId: creditId, status: "Approved" } },
+      { $group: { _id: null, total: { $sum: "$amount" } } }
+    ]);
+    return result[0]?.total || 0;
+  } catch (error) {
+    console.error("Error calculating total paid:", error);
+    return 0;
+  }
+};
+
+// Static method untuk mendapatkan payment details
+creditSchema.statics.getPaymentDetails = async function(creditId) {
+  try {
+    const { CreditPayment } = await import("./creditPayment.model.js");
+    const payments = await CreditPayment.find({ creditId })
+      .populate('memberId', 'name uuid')
+      .sort({ installmentPeriod: 1 });
+
+    return payments;
+  } catch (error) {
+    console.error("Error getting payment details:", error);
+    return [];
+  }
+};
 
 // Method untuk generate installments
 creditSchema.methods.generateInstallments = function() {

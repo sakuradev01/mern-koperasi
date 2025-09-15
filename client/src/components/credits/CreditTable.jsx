@@ -1,7 +1,7 @@
 import { useState } from "react";
 import PropTypes from "prop-types";
 
-const CreditTable = ({ credits, onPayInstallment, onEditCredit, onDeleteCredit }) => {
+const CreditTable = ({ credits, onPayInstallment, onEditCredit, onDeleteCredit, viewOnly = false }) => {
   const [expandedCredit, setExpandedCredit] = useState(null);
 
   const formatCurrency = (amount) => {
@@ -142,20 +142,24 @@ const CreditTable = ({ credits, onPayInstallment, onEditCredit, onDeleteCredit }
               </div>
 
               <div className="ml-4 flex items-center gap-2">
-                <button
-                  onClick={() => onEditCredit(credit)}
-                  className="px-3 py-1 text-xs bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors"
-                  title="Edit Kredit"
-                >
-                  ✏️ Edit
-                </button>
-                <button
-                  onClick={() => onDeleteCredit(credit._id, credit.productName)}
-                  className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
-                  title="Hapus Kredit"
-                >
-                  🗑️ Hapus
-                </button>
+                {!viewOnly && (
+                  <>
+                    <button
+                      onClick={() => onEditCredit(credit)}
+                      className="px-3 py-1 text-xs bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors"
+                      title="Edit Kredit"
+                    >
+                      ✏️ Edit
+                    </button>
+                    <button
+                      onClick={() => onDeleteCredit(credit._id, credit.productName)}
+                      className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+                      title="Hapus Kredit"
+                    >
+                      🗑️ Hapus
+                    </button>
+                  </>
+                )}
                 <button
                   onClick={() => toggleExpandCredit(credit._id)}
                   className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
@@ -221,7 +225,7 @@ const CreditTable = ({ credits, onPayInstallment, onEditCredit, onDeleteCredit }
                             {getInstallmentStatusBadge(installment.status)}
                           </td>
                           <td className="py-2 px-3">
-                            {installment.status !== "Paid" && (
+                            {!viewOnly && installment.status !== "Paid" && (
                               <button
                                 onClick={() => onPayInstallment(credit._id, installment.period)}
                                 className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200 transition-colors"
@@ -273,9 +277,10 @@ const CreditTable = ({ credits, onPayInstallment, onEditCredit, onDeleteCredit }
 
 CreditTable.propTypes = {
   credits: PropTypes.array.isRequired,
-  onPayInstallment: PropTypes.func.isRequired,
-  onEditCredit: PropTypes.func.isRequired,
-  onDeleteCredit: PropTypes.func.isRequired,
+  onPayInstallment: PropTypes.func,
+  onEditCredit: PropTypes.func,
+  onDeleteCredit: PropTypes.func,
+  viewOnly: PropTypes.bool,
 };
 
 export default CreditTable;

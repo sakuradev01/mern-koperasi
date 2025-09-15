@@ -319,40 +319,7 @@ const Credits = () => {
         const payment = response.data.data;
         console.log("Payment data:", payment);
 
-        // Update installment di kredit asli
-        const updateData = {
-          amount: payment.amount,
-          notes: payment.description || "",
-        };
-
-        // Jika ada proof file, tambahkan ke update data
-        if (payment.proofFile) {
-          updateData.proofFile = payment.proofFile;
-        }
-
-        console.log("Updating credit:", {
-          creditId: payment.creditId,
-          period: payment.installmentPeriod,
-          updateData
-        });
-
-        const updateResponse = await axios.patch(
-          `${API_URL}/api/credits/${payment.creditId}/pay/${payment.installmentPeriod}`,
-          updateData,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`
-            },
-          }
-        );
-
-        console.log("Update credit response:", updateResponse.data);
-
-        if (updateResponse.data.success) {
-          toast.success("Pembayaran berhasil disetujui dan kredit telah diupdate!");
-        } else {
-          toast.warning("Pembayaran disetujui tapi gagal update kredit");
-        }
+        toast.success("Pembayaran berhasil disetujui!");
 
         // Refresh data
         await fetchCreditPayments();

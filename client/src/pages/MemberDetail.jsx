@@ -29,10 +29,10 @@ const MemberDetail = () => {
     fetchMemberCredits();
   };
 
-  // Handler untuk pay installment - redirect to credits page
+  // Handler untuk pay installment - redirect to credits page (not used in viewOnly mode)
   const handlePayInstallment = (creditId, period) => {
-    // Redirect to credits page with pre-selected credit
-    window.open(`/kredit-pinjaman?creditId=${creditId}&period=${period}`, '_blank');
+    // This handler is not used in viewOnly mode
+    console.log("Pay installment (view only):", creditId, period);
   };
 
   // Handler untuk edit credit
@@ -875,22 +875,23 @@ const MemberDetail = () => {
                   💳 Data Kredit Pinjaman
                 </h3>
                 <p className="text-sm text-gray-600">
-                  Kelola kredit dan angsuran member
+                  Riwayat kredit dan pembayaran angsuran
                 </p>
               </div>
-              <button
-                onClick={() => setShowCreditModal(true)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+              <a
+                href="/kredit-pinjaman"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm"
               >
-                ➕ Tambah Kredit
-              </button>
+                💰 Kelola Pembayaran
+                <span className="text-xs">🔗</span>
+              </a>
             </div>
             
             <CreditTable
               credits={creditsData}
-              onPayInstallment={handlePayInstallment}
-              onEditCredit={handleEditCredit}
-              onDeleteCredit={handleDeleteCredit}
+              viewOnly={true}
             />
           </div>
         </>

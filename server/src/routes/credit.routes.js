@@ -6,7 +6,6 @@ import {
   createCredit,
   updateCredit,
   deleteCredit,
-  payInstallment,
   calculateInstallment
 } from "../controllers/credit.controller.js";
 import { verifyToken } from "../middlewares/auth.middleware.js";
@@ -32,7 +31,6 @@ router.route("/:id")
 router.route("/member-by-uuid/:memberUuid")
   .get(getCreditsByMemberUuid);
 
-router.route("/:id/pay/:period")
-  .patch(payInstallment);
+// Route payInstallment dihapus karena pembayaran sekarang melalui credit-payments
 
 export default router;

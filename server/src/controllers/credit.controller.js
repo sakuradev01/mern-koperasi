@@ -1,4 +1,5 @@
 import { Credit } from "../models/credit.model.js";
+import { CreditPayment } from "../models/creditPayment.model.js";
 import { Member } from "../models/member.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
@@ -78,26 +79,24 @@ const getCreditsByMemberUuid = asyncHandler(async (req, res) => {
     .populate('memberId', 'name uuid phone')
     .sort({ createdAt: -1 });
 
-  // Manually calculate virtual fields untuk memastikan ter-include
-  const creditsWithVirtuals = credits.map(credit => {
+  // Calculate virtual fields based on credit-payments
+  const creditsWithVirtuals = await Promise.all(credits.map(async (credit) => {
     const creditObj = credit.toObject({ virtuals: true });
-    
-    // Manual calculation untuk memastikan akurat
-    const totalPaid = credit.installments.reduce((total, installment) => {
-      return total + (installment.paidAmount || 0);
-    }, 0);
-    
-    const paymentProgress = credit.totalAmount > 0 
-      ? Math.round((totalPaid / credit.totalAmount) * 100) 
+
+    // Calculate total paid from credit-payments
+    const totalPaid = await Credit.calculateTotalPaid(credit._id);
+
+    const paymentProgress = credit.totalAmount > 0
+      ? Math.round((totalPaid / credit.totalAmount) * 100)
       : 0;
-    
+
     return {
       ...creditObj,
       totalPaid,
       paymentProgress,
       remainingAmount: credit.totalAmount - totalPaid
     };
-  });
+  }));
 
   return res.status(200).json(
     new ApiResponse(200, { credits: creditsWithVirtuals }, "Data kredit member berhasil diambil")
