@@ -40,6 +40,10 @@ const Savings = () => {
   const [itemsPerPage] = useState(10);
   const [showProofModal, setShowProofModal] = useState(false);
   const [selectedProof, setSelectedProof] = useState(null);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectTarget, setRejectTarget] = useState(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectSubmitting, setRejectSubmitting] = useState(false);
   
   // Confirmation dialog states
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -675,6 +679,43 @@ const Savings = () => {
     );
   };
 
+  // Open Reject Modal with existing description
+  const handleReject = (saving) => {
+    setRejectTarget(saving);
+    setRejectReason(saving?.description || "");
+    setShowRejectModal(true);
+  };
+
+  const submitReject = async () => {
+    if (!rejectTarget?._id) return;
+    try {
+      setRejectSubmitting(true);
+      const token = localStorage.getItem("token");
+      const formData = new FormData();
+      formData.append("status", "Rejected");
+      // Pakai kolom yang sudah ada: description
+      formData.append("description", rejectReason || "");
+
+      await axios.put(`${API_URL}/api/savings/${rejectTarget._id}`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      toast.success("✅ Simpanan berhasil ditolak");
+      setShowRejectModal(false);
+      setRejectTarget(null);
+      setRejectReason("");
+      // Refresh data
+      setTimeout(() => fetchSavings(1, 100), 300);
+    } catch (error) {
+      const message = error.response?.data?.message || error.message || "Gagal menolak simpanan";
+      toast.error(`❌ ${message}`);
+    } finally {
+      setRejectSubmitting(false);
+    }
+  };
+
   // Handle delete
   const handleDelete = async (id) => {
     showConfirmation(
@@ -1103,12 +1144,20 @@ const Savings = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-2">
                         {saving.status === "Pending" && (
-                          <button
-                            onClick={() => handleApprove(saving._id)}
-                            className="text-green-600 hover:text-green-900 transition-colors"
-                          >
-                            ✅ Approve
-                          </button>
+                          <>
+                            <button
+                              onClick={() => handleApprove(saving._id)}
+                              className="text-green-600 hover:text-green-900 transition-colors"
+                            >
+                              ✅ Approve
+                            </button>
+                            <button
+                              onClick={() => handleReject(saving)}
+                              className="text-red-600 hover:text-red-900 transition-colors"
+                            >
+                              ❌ Reject
+                            </button>
+                          </>
                         )}
                         <button
                           onClick={() => handleEdit(saving)}
@@ -1747,6 +1796,72 @@ const Savings = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-2/3 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div className="mt-1">
+              <h3 className="text-lg font-medium leading-6 text-gray-900 mb-2">
+                Tolak Simpanan
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Isi keterangan singkat alasan penolakan. Kolom ini menggunakan field "Keterangan" yang sudah ada.
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Keterangan</label>
+                  <textarea
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value.slice(0, 500))}
+                    rows={4}
+                    maxLength={500}
+                    className="mt-1 block w-full rounded-md shadow-sm border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                    placeholder="Tuliskan alasan penolakan (maks. 500 karakter)"
+                  />
+                  <p className="mt-1 text-xs text-gray-500 text-right">{rejectReason.length}/500 karakter</p>
+                </div>
+
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!rejectSubmitting) {
+                        setShowRejectModal(false);
+                        setRejectTarget(null);
+                        setRejectReason("");
+                      }
+                    }}
+                    disabled={rejectSubmitting}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={submitReject}
+                    disabled={rejectSubmitting}
+                    className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  >
+                    {rejectSubmitting ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Menolak...
+                      </>
+                    ) : (
+                      "Tolak Simpanan"
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

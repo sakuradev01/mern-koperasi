@@ -157,7 +157,7 @@ const MemberDetail = () => {
           // Create map dari existing savings berdasarkan installment period
           const savingsMap = {};
           savingsArray.forEach((saving) => {
-            // PERBAIKAN: Ambil SEMUA savings (Approved, Pending, Rejected) tipe Setoran
+            // Ambil SEMUA savings tipe Setoran (Approved, Pending, Rejected)
             if (saving.type === "Setoran") {
               savingsMap[saving.installmentPeriod] = saving;
             }
@@ -193,13 +193,15 @@ const MemberDetail = () => {
               projectionAmount = originalDepositAmount;
             }
 
+            const realizationAmount = existingSaving && existingSaving.status === 'Approved'
+              ? existingSaving.amount.toString()
+              : "0";
+
             convertedData.push({
               installment_period: period,
               projection: projectionAmount.toString(),
               dateProjection: dateProjection,
-              realization: existingSaving
-                ? existingSaving.amount.toString()
-                : "0",
+              realization: realizationAmount,
               payment_proof: existingSaving
                 ? existingSaving.proofFile || "0"
                 : "0",
