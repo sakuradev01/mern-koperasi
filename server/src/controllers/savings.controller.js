@@ -187,8 +187,8 @@ const createSavings = asyncHandler(async (req, res) => {
     try {
       const { exec } = await import('child_process');
 
-      // Run sync script di background tanpa waiting
-      exec('sudo /usr/local/bin/sync-uploads.sh', (error, stdout, stderr) => {
+      // Run sync script di background tanpa waiting (sesuai deploy.yml)
+      exec('/usr/local/bin/sync-uploads.sh', (error, stdout, stderr) => {
         if (error) {
           console.error('⚠️ Admin file sync failed (non-critical):', error.message);
           return;
@@ -258,8 +258,8 @@ const updateSavings = asyncHandler(async (req, res) => {
     try {
       const { exec } = await import('child_process');
 
-      // Run sync script di background tanpa waiting
-      exec('sudo /usr/local/bin/sync-uploads.sh', (error, stdout, stderr) => {
+      // Run sync script di background tanpa waiting (sesuai deploy.yml)
+      exec('/usr/local/bin/sync-uploads.sh', (error, stdout, stderr) => {
         if (error) {
           console.error('⚠️ Update file sync failed (non-critical):', error.message);
           return;
