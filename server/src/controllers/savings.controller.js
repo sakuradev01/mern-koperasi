@@ -160,19 +160,26 @@ const createSavings = asyncHandler(async (req, res) => {
     }).format(amount);
   }
 
-  // Check for duplicate installment period for same member and product
-  const existingSavings = await Savings.findOne({
+  // Check existing attempts for this period (allow retry if semua rejected)
+  const attempts = await Savings.find({
     memberId,
-    productId,
     installmentPeriod,
-  });
+    type: "Setoran",
+  }).sort({ attemptNumber: -1, createdAt: -1 });
 
-  if (existingSavings) {
+  const hasActiveAttempt = attempts.some(
+    (attempt) => attempt.status !== "Rejected"
+  );
+
+  if (hasActiveAttempt) {
     throw new ApiError(
       400,
       `Kamu sudah pernah menambahkan data periode ${installmentPeriod} untuk produk ini`
     );
   }
+
+  const retryGroup = `${member._id.toString()}_${currentProduct._id.toString()}_${installmentPeriod}`;
+  const attemptNumber = attempts.length + 1;
 
   // ADDITIONAL VALIDATION: Ensure file is present if this is a NEW deposit (Setoran)
   // For create operation, require file for setoran
@@ -193,6 +200,8 @@ const createSavings = asyncHandler(async (req, res) => {
     description,
     status: status || "Pending", // Tambahkan status field
     proofFile: req.file ? req.file.path : null,
+    retryGroup,
+    attemptNumber,
   });
 
   await savings.save();
@@ -548,17 +557,37 @@ const getLastInstallmentPeriod = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Member ID dan Product ID wajib diisi");
   }
 
-  // PERBAIKAN: Cari periode terakhir untuk member (semua produk) karena setelah upgrade productId berubah
-  const lastSavings = await Savings.findOne({
+  // Ambil semua attempt untuk menentukan periode berikutnya dan dukung retry
+  const allAttempts = await Savings.find({
     memberId,
-    // HAPUS filter productId agar bisa ambil dari produk lama juga
-    type: "Setoran"
+    type: "Setoran",
   })
-    .sort({ installmentPeriod: -1 })
-    .select("installmentPeriod");
+    .sort({ installmentPeriod: -1, attemptNumber: -1, createdAt: -1 })
+    .select("installmentPeriod status attemptNumber retryGroup");
 
-  const lastPeriod = lastSavings ? lastSavings.installmentPeriod : 0;
-  const nextPeriod = lastPeriod + 1;
+  const lastNonRejected = allAttempts.find(
+    (attempt) => attempt.status !== "Rejected"
+  );
+  const lastPeriod = lastNonRejected ? lastNonRejected.installmentPeriod : 0;
+  let nextPeriod = lastPeriod + 1;
+
+  const latestAttempt = allAttempts[0];
+  let isRetry = false;
+  let retryAttemptNumber = null;
+  if (
+    latestAttempt &&
+    latestAttempt.status === "Rejected" &&
+    !allAttempts.some(
+      (attempt) =>
+        attempt.installmentPeriod === latestAttempt.installmentPeriod &&
+        attempt.status !== "Rejected"
+    )
+  ) {
+    // Tidak ada attempt aktif untuk periode tertinggi ⇒ izinkan retry
+    nextPeriod = latestAttempt.installmentPeriod;
+    isRetry = true;
+    retryAttemptNumber = latestAttempt.attemptNumber || 1;
+  }
 
   // TAMBAHAN: Cek apakah ada upgrade aktif untuk menentukan expected amount
   let expectedAmount = null;
@@ -621,7 +650,9 @@ const getLastInstallmentPeriod = asyncHandler(async (req, res) => {
       lastPeriod,
       nextPeriod,
       expectedAmount,
-      upgradeInfo
+      upgradeInfo,
+      isRetry,
+      retryAttemptNumber,
     })
   );
 });
@@ -676,11 +707,24 @@ const getStudentDashboardSavings = asyncHandler(async (req, res) => {
 
   // Hapus duplikat berdasarkan installmentPeriod
   const uniqueSavings = allFoundSavings.reduce((acc, current) => {
-    const existing = acc.find(
+    const existingIndex = acc.findIndex(
       (item) => item.installmentPeriod === current.installmentPeriod
     );
-    if (!existing) {
+
+    if (existingIndex === -1) {
       acc.push(current);
+    } else {
+      const existing = acc[existingIndex];
+      const existingAttempt = existing.attemptNumber || 1;
+      const currentAttempt = current.attemptNumber || 1;
+
+      if (
+        currentAttempt > existingAttempt ||
+        (currentAttempt === existingAttempt && current.updatedAt > existing.updatedAt) ||
+        (existing.status === "Rejected" && current.status !== "Rejected")
+      ) {
+        acc[existingIndex] = current;
+      }
     }
     return acc;
   }, []);
@@ -696,7 +740,8 @@ const getStudentDashboardSavings = asyncHandler(async (req, res) => {
   const realizationStatusMap = {};
 
   depositHistory.forEach((deposit) => {
-    realizationAmountMap[deposit.installmentPeriod] = deposit.amount;
+    realizationAmountMap[deposit.installmentPeriod] =
+      deposit.status === "Approved" ? deposit.amount : 0;
     realizationProofFileMap[deposit.installmentPeriod] = deposit.proofFile || 0;
     realizationStatusMap[deposit.installmentPeriod] = deposit.status || "Pending";
     console.log(`Period ${deposit.installmentPeriod}: ${deposit.amount} - Status: ${deposit.status}`); // Debug
@@ -802,39 +847,66 @@ const getSavingsByMemberUuid = asyncHandler(async (req, res) => {
 
   // LANGSUNG QUERY SEMUA SAVINGS untuk member ini
   // Method 1: Cari berdasarkan member._id
-  let allSavings = await Savings.find({ memberId: member._id })
+  const rawSavings = await Savings.find({ memberId: member._id })
     .populate("memberId", "name email phone uuid")
     .populate("productId", "title depositAmount returnProfit termDuration")
-    .sort({ installmentPeriod: 1 });
+    .sort({ installmentPeriod: 1, attemptNumber: 1, createdAt: 1 });
 
-  console.log(`Method 1 (by member._id): Found ${allSavings.length} savings`); // Debug
+  const groupedByPeriod = new Map();
+  const historyByPeriod = new Map();
 
-  // Method 2: Jika tidak ada, cari dengan populate dan filter UUID
-  if (allSavings.length === 0) {
-    const allSavingsInDB = await Savings.find({})
-      .populate("memberId", "name email phone uuid")
-      .populate("productId", "title depositAmount returnProfit termDuration")
-      .sort({ installmentPeriod: 1 });
+  rawSavings.forEach((saving) => {
+    const period = saving.installmentPeriod;
+    const currentBest = groupedByPeriod.get(period);
 
-    allSavings = allSavingsInDB.filter(
-      (saving) => saving.memberId && saving.memberId.uuid === uuid
-    );
+    if (!historyByPeriod.has(period)) {
+      historyByPeriod.set(period, []);
+    }
+    historyByPeriod.get(period).push(saving);
 
-    console.log(
-      `Method 2 (by UUID filter): Found ${allSavings.length} savings`
-    ); // Debug
-  }
+    if (!currentBest) {
+      groupedByPeriod.set(period, saving);
+    } else {
+      const currentAttempt = currentBest.attemptNumber || 1;
+      const candidateAttempt = saving.attemptNumber || 1;
 
-  // Debug: Print semua savings yang ditemukan
-  allSavings.forEach((saving) => {
-    console.log(
-      `Period ${saving.installmentPeriod}: ${saving.amount} - ${saving.status} - ${saving.type}`
-    );
+      if (
+        candidateAttempt > currentAttempt ||
+        (candidateAttempt === currentAttempt && saving.updatedAt > currentBest.updatedAt)
+      ) {
+        groupedByPeriod.set(period, saving);
+      }
+    }
   });
+
+  const normalizedSavings = Array.from(groupedByPeriod.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([period, saving]) => {
+      const historyList = historyByPeriod.get(period) || [];
+      const attemptHistory = historyList
+        .sort((a, b) => (a.attemptNumber || 1) - (b.attemptNumber || 1))
+        .map((attempt) => ({
+          attemptNumber: attempt.attemptNumber || 1,
+          status: attempt.status,
+          amount: attempt.amount,
+          description: attempt.description,
+          proofFile: attempt.proofFile || null,
+          createdAt: attempt.createdAt,
+          updatedAt: attempt.updatedAt,
+          _id: attempt._id,
+        }));
+
+      const savingObj = saving.toObject();
+      savingObj.attemptHistory = attemptHistory;
+      savingObj.attemptNumber = attemptHistory.length
+        ? attemptHistory[attemptHistory.length - 1].attemptNumber
+        : saving.attemptNumber || 1;
+      return savingObj;
+    });
 
   res.status(200).json(
     new ApiResponse(200, {
-      savings: allSavings,
+      savings: normalizedSavings,
       member: {
         uuid: member.uuid,
         name: member.name,

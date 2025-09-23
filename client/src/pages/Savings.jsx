@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
@@ -44,6 +44,8 @@ const Savings = () => {
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
   const [rejectSubmitting, setRejectSubmitting] = useState(false);
+  const [retryInfo, setRetryInfo] = useState(null);
+  const retryToastRef = useRef({ period: null, attempts: 0 });
   
   // Confirmation dialog states
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -237,27 +239,85 @@ const Savings = () => {
   // Check for duplicate period in real-time
   useEffect(() => {
     if (formData.memberId && formData.productId && formData.installmentPeriod) {
-      const existingSaving = savings.find(
-        (saving) =>
-          saving.memberId?._id === formData.memberId &&
-          saving.productId?._id === formData.productId &&
-          saving.installmentPeriod === formData.installmentPeriod &&
-          (!editingId || saving._id !== editingId) // Exclude current editing item
+      const matchingAttempts = savings.filter((saving) =>
+        (saving.memberId?._id === formData.memberId || saving.memberId === formData.memberId) &&
+        (saving.productId?._id === formData.productId || saving.productId === formData.productId) &&
+        saving.installmentPeriod === formData.installmentPeriod &&
+        (!editingId || saving._id !== editingId)
       );
-      
-      if (existingSaving) {
-        setErrors(prev => ({
+
+      const blockingAttempt = matchingAttempts.find((attempt) => attempt.status !== "Rejected");
+      const rejectedAttempts = matchingAttempts.filter((attempt) => attempt.status === "Rejected");
+
+      if (blockingAttempt) {
+        setErrors((prev) => ({
           ...prev,
-          installmentPeriod: `Periode ${formData.installmentPeriod} sudah pernah ditambahkan untuk member dan produk ini`
+          installmentPeriod: 'Periode ' + formData.installmentPeriod + ' sudah pernah ditambahkan untuk member dan produk ini',
         }));
-      } else if (errors.installmentPeriod && errors.installmentPeriod.includes("sudah pernah")) {
-        setErrors(prev => ({
+        setRetryInfo(null);
+        retryToastRef.current = { period: null, attempts: 0 };
+      } else if (errors.installmentPeriod && errors.installmentPeriod.includes('sudah pernah')) {
+        setErrors((prev) => ({
           ...prev,
-          installmentPeriod: ""
+          installmentPeriod: '',
         }));
       }
+
+      if (!blockingAttempt && rejectedAttempts.length > 0) {
+        if (
+          retryToastRef.current.period !== formData.installmentPeriod ||
+          retryToastRef.current.attempts !== rejectedAttempts.length
+        ) {
+          toast.info(
+            rejectedAttempts.length === 1
+              ? 'Periode ' + formData.installmentPeriod + ' sudah pernah ditolak 1 kali. Silakan unggah bukti terbaru.'
+              : 'Periode ' + formData.installmentPeriod + ' sudah pernah ditolak ' + rejectedAttempts.length + ' kali. Silakan unggah bukti terbaru.'
+          );
+          retryToastRef.current = {
+            period: formData.installmentPeriod,
+            attempts: rejectedAttempts.length,
+          };
+        }
+
+        setRetryInfo((prev) => {
+          if (
+            prev &&
+            prev.isRetry &&
+            prev.period === formData.installmentPeriod &&
+            prev.previousAttempts === rejectedAttempts.length
+          ) {
+            return prev;
+          }
+          return {
+            isRetry: true,
+            period: formData.installmentPeriod,
+            previousAttempts: rejectedAttempts.length,
+            nextAttempt: rejectedAttempts.length + 1,
+          };
+        });
+      } else {
+        if (retryToastRef.current.period === formData.installmentPeriod) {
+          retryToastRef.current = { period: null, attempts: 0 };
+        }
+        if (
+          retryInfo &&
+          retryInfo.isRetry &&
+          retryInfo.period === formData.installmentPeriod &&
+          rejectedAttempts.length === 0
+        ) {
+          setRetryInfo(null);
+        }
+      }
     }
-  }, [formData.memberId, formData.productId, formData.installmentPeriod, savings, editingId, errors.installmentPeriod]);
+  }, [
+    formData.memberId,
+    formData.productId,
+    formData.installmentPeriod,
+    savings,
+    editingId,
+    errors.installmentPeriod,
+    retryInfo,
+  ]);
 
   // Format currency
   const formatCurrency = (amount) => {
@@ -281,7 +341,8 @@ const Savings = () => {
       const next = data.nextPeriod ?? ((last || 0) + 1);
       const expectedAmount = data.expectedAmount;
       const upgradeInfo = data.upgradeInfo;
-      
+      const isRetry = data.isRetry;
+      const previousAttempts = data.retryAttemptNumber || 0;
       setLastPeriod(last);
       
       const selectionChanged =
@@ -311,12 +372,24 @@ const Savings = () => {
         }
         
         setFormData((prev) => ({ ...prev, ...updateData }));
-        
+
         // Log untuk debugging
-        console.log(`🔍 Period check - Last: ${last}, Next: ${next}, Expected: ${expectedAmount}`);
+        console.log('🔍 Period check - Last: ' + last + ', Next: ' + next + ', Expected: ' + expectedAmount);
         if (upgradeInfo) {
-          console.log(`🚀 Upgrade detected from period ${upgradeInfo.upgradeFromPeriod}`);
+          console.log('🚀 Upgrade detected from period ' + upgradeInfo.upgradeFromPeriod);
         }
+      }
+
+      if (isRetry) {
+        setRetryInfo({
+          isRetry: true,
+          period: next,
+          previousAttempts,
+          nextAttempt: previousAttempts + 1,
+        });
+      } else {
+        setRetryInfo(null);
+        retryToastRef.current = { period: null, attempts: 0 };
       }
     } catch (error) {
       console.error("Error checking last period:", error);
@@ -327,6 +400,8 @@ const Savings = () => {
       if (!editingId || selectionChanged) {
         setFormData((prev) => ({ ...prev, installmentPeriod: 1 }));
       }
+      setRetryInfo(null);
+      retryToastRef.current = { period: null, attempts: 0 };
     }
   };
 
@@ -593,6 +668,8 @@ const Savings = () => {
     setOriginalSelection({ memberId: "", productId: "" });
     setErrors({});
     setIsSubmitting(false);
+    setRetryInfo(null);
+    retryToastRef.current = { period: null, attempts: 0 };
   };
 
   // Handle file upload
@@ -759,6 +836,7 @@ const Savings = () => {
       status: saving.status || "Pending",
       proofFile: null,
     });
+    setRetryInfo(null);
     setOriginalSelection({
       memberId: saving.memberId?._id || saving.memberId || "",
       productId: saving.productId?._id || saving.productId || "",
@@ -1101,6 +1179,11 @@ const Savings = () => {
                           return ` (${format(projectionDate, "MMMM yyyy", { locale: id })})`;
                         })()}
                       </span>
+                      {saving.attemptNumber && saving.attemptNumber > 1 && (
+                        <div className="text-xs text-orange-500 mt-1">
+                          🔁 Attempt ke-{saving.attemptNumber}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
                       {formatCurrency(saving.amount)}
@@ -1482,11 +1565,8 @@ const Savings = () => {
                         setErrors({ ...errors, productId: "" });
                       }
                     }}
-                    disabled={!editingId && formData.memberId && formData.productId} // 🔒 Lock setelah auto-fill
                     className={`mt-1 block w-full rounded-md shadow-sm focus:ring-blue-500 ${
-                      !editingId && formData.memberId && formData.productId
-                        ? "bg-gray-100 border-gray-300 text-gray-600 cursor-not-allowed" // 🔒 Style locked
-                        : errors.productId
+                      errors.productId
                         ? "border-red-300 focus:border-red-500 bg-red-50"
                         : "border-gray-300 focus:border-blue-500"
                     }`}
@@ -1504,12 +1584,6 @@ const Savings = () => {
                     <p className="mt-1 text-sm text-red-600 flex items-center">
                       <span className="mr-1">⚠️</span>
                       {errors.productId}
-                    </p>
-                  )}
-                  {!editingId && formData.memberId && formData.productId && (
-                    <p className="mt-1 text-sm text-green-600 flex items-center">
-                      <span className="mr-1">🔒</span>
-                      Produk dikunci otomatis berdasarkan anggota yang dipilih
                     </p>
                   )}
                 </div>
@@ -1532,11 +1606,8 @@ const Savings = () => {
                           setErrors({ ...errors, installmentPeriod: "" });
                         }
                       }}
-                      disabled={!editingId && formData.memberId && formData.productId} // 🔒 Lock setelah auto-fill
                       className={`mt-1 block w-full rounded-md shadow-sm focus:ring-blue-500 ${
-                        !editingId && formData.memberId && formData.productId
-                          ? "bg-gray-100 border-gray-300 text-gray-600 cursor-not-allowed" // 🔒 Style locked
-                          : errors.installmentPeriod
+                        errors.installmentPeriod
                           ? "border-red-300 focus:border-red-500 bg-red-50"
                           : "border-gray-300 focus:border-blue-500"
                       }`}
@@ -1548,10 +1619,12 @@ const Savings = () => {
                         {errors.installmentPeriod}
                       </p>
                     )}
-                    {!editingId && formData.memberId && formData.productId && (
-                      <p className="mt-1 text-sm text-green-600 flex items-center">
-                        <span className="mr-1">🔒</span>
-                        Periode dikunci otomatis (periode terakhir: {lastPeriod})
+                    {retryInfo?.isRetry && retryInfo.period === formData.installmentPeriod && (
+                      <p className="mt-1 text-sm text-orange-500 flex items-center">
+                        <span className="mr-1">🔁</span>
+                        {retryInfo.previousAttempts > 0
+                          ? `Periode ${formData.installmentPeriod} sudah pernah ditolak ${retryInfo.previousAttempts} kali. Ini percobaan ke-${retryInfo.nextAttempt}.`
+                          : `Periode ${formData.installmentPeriod} percobaan ulang.`}
                       </p>
                     )}
                     {lastPeriod > 0 && !errors.installmentPeriod && editingId && (
@@ -1578,11 +1651,8 @@ const Savings = () => {
                           setErrors({ ...errors, amount: "" });
                         }
                       }}
-                      disabled={!editingId && formData.memberId && formData.productId && formData.amount} // 🔒 Lock setelah auto-fill
                       className={`mt-1 block w-full rounded-md shadow-sm focus:ring-blue-500 ${
-                        !editingId && formData.memberId && formData.productId && formData.amount
-                          ? "bg-gray-100 border-gray-300 text-gray-600 cursor-not-allowed" // 🔒 Style locked
-                          : errors.amount
+                        errors.amount
                           ? "border-red-300 focus:border-red-500 bg-red-50"
                           : "border-gray-300 focus:border-blue-500"
                       }`}
@@ -1592,12 +1662,6 @@ const Savings = () => {
                       <p className="mt-1 text-sm text-red-600 flex items-center">
                         <span className="mr-1">⚠️</span>
                         {errors.amount}
-                      </p>
-                    )}
-                    {!editingId && formData.memberId && formData.productId && formData.amount && (
-                      <p className="mt-1 text-sm text-green-600 flex items-center">
-                        <span className="mr-1">🔒</span>
-                        Jumlah dikunci otomatis sesuai nominal upgrade/paket ({formatCurrency(formData.amount)})
                       </p>
                     )}
                     {formData.productId && !editingId && !formData.amount && !errors.amount && (

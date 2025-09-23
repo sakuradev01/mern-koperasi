@@ -169,7 +169,7 @@ const MemberDetail = () => {
           const convertedData = [];
           for (let period = 1; period <= termDuration; period++) {
             const existingSaving = savingsMap[period];
-
+            
             // Calculate date projection
             const currentDate = new Date();
             const projectionDate = new Date(
@@ -197,6 +197,9 @@ const MemberDetail = () => {
               ? existingSaving.amount.toString()
               : "0";
 
+            const attemptHistory = existingSaving?.attemptHistory || [];
+            const attemptNumber = existingSaving?.attemptNumber || (attemptHistory.length > 0 ? attemptHistory[attemptHistory.length - 1].attemptNumber : 1);
+
             convertedData.push({
               installment_period: period,
               projection: projectionAmount.toString(),
@@ -206,6 +209,8 @@ const MemberDetail = () => {
                 ? existingSaving.proofFile || "0"
                 : "0",
               status: existingSaving ? existingSaving.status : "Belum Bayar",
+              attemptNumber,
+              attemptHistory,
               isUpgradePeriod: activeUpgrade && period >= upgradeStartPeriod,
               upgradeInfo: activeUpgrade && period >= upgradeStartPeriod ? {
                 oldAmount: originalDepositAmount, // deposit lama
@@ -364,7 +369,7 @@ const MemberDetail = () => {
 
   const creditSummary = calculateCreditSummary();
 
-  const handleShowProof = (proofFile, period) => {
+  const handleShowProof = (proofFile, period, attempt = null) => {
     if (proofFile && proofFile !== "0") {
       const baseApi =
         import.meta.env.VITE_API_URL ||
@@ -381,9 +386,14 @@ const MemberDetail = () => {
       console.log("Generated URL primary:", primaryUrl); // Debug
       console.log("Generated URL fallback:", fallbackUrl); // Debug
 
+      const periodNumber =
+        period?.installment_period ?? period?.installmentPeriod ?? "-";
+
       setSelectedProof({
         file: proofFile,
-        period: period,
+        periodNumber,
+        period,
+        attempt,
         url: primaryUrl,
         fallbackUrl,
       });
@@ -753,16 +763,39 @@ const MemberDetail = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {savingsData.length > 0 ? (
-                savingsData.map((period, index) => (
-                  <tr
-                    key={index}
-                    className="hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-8 h-8 bg-pink-100 rounded-full flex items-center justify-center text-pink-600 font-semibold text-sm mr-3">
-                          {period.installment_period}
-                        </div>
+                savingsData.map((period, index) => {
+                  const attemptHistory = Array.isArray(period.attemptHistory)
+                    ? [...period.attemptHistory].sort(
+                        (a, b) => (a.attemptNumber || 0) - (b.attemptNumber || 0)
+                      )
+                    : [];
+                  const latestAttempt =
+                    attemptHistory.length > 0
+                      ? attemptHistory[attemptHistory.length - 1]
+                      : null;
+                  const previousAttempts =
+                    attemptHistory.length > 1
+                      ? attemptHistory.slice(0, -1).reverse()
+                      : [];
+                  const latestProof =
+                    latestAttempt && latestAttempt.proofFile && latestAttempt.proofFile !== "0"
+                      ? latestAttempt.proofFile
+                      : period.payment_proof && period.payment_proof !== "0"
+                      ? period.payment_proof
+                      : null;
+                  const latestStatus = latestAttempt?.status || period.status;
+                  const rejectedCount = attemptHistory.filter((a) => a.status === "Rejected").length;
+
+                  return (
+                    <tr
+                      key={index}
+                      className="hover:bg-gray-50 transition-colors"
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="w-8 h-8 bg-pink-100 rounded-full flex items-center justify-center text-pink-600 font-semibold text-sm mr-3">
+                            {period.installment_period}
+                          </div>
                         <span className="text-sm font-medium text-gray-900">
                           Periode {period.installment_period}
                         </span>
@@ -794,29 +827,70 @@ const MemberDetail = () => {
                       {formatCurrency(parseInt(period.realization) || 0)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {period.payment_proof && period.payment_proof !== "0" ? (
-                        <button
-                          onClick={() =>
-                            handleShowProof(
-                              period.payment_proof,
-                              period.installment_period
-                            )
-                          }
-                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 hover:bg-green-200 transition-colors cursor-pointer"
-                        >
-                          👁️ Lihat Bukti
-                        </button>
-                      ) : (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                          📄 Belum Ada
-                        </span>
-                      )}
+                      <div className="space-y-2">
+                        {latestProof ? (
+                          <button
+                            onClick={() =>
+                              handleShowProof(
+                                latestProof,
+                                period,
+                                latestAttempt || null
+                              )
+                            }
+                            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 hover:bg-green-200 transition-colors"
+                          >
+                            👁️ Bukti Terbaru {latestAttempt ? `(Attempt #${latestAttempt.attemptNumber})` : ""}
+                          </button>
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                            📄 Belum Ada
+                          </span>
+                        )}
+
+                        {previousAttempts.length > 0 && (
+                          <div className="pt-1 border-t border-gray-200">
+                            <p className="text-[11px] text-gray-500 mb-1">
+                              Riwayat Attempt Sebelumnya:
+                            </p>
+                            <div className="flex flex-col gap-1">
+                              {previousAttempts.map((attempt) => (
+                                <div
+                                  key={attempt._id || period.installment_period + "-prev-" + attempt.attemptNumber}
+                                  className="flex items-center justify-between gap-2"
+                                >
+                                  <span className="text-[11px] text-gray-500">
+                                    Attempt #{attempt.attemptNumber} · {attempt.status}
+                                  </span>
+                                  {attempt.proofFile && attempt.proofFile !== "0" ? (
+                                    <button
+                                      onClick={() => handleShowProof(attempt.proofFile, period, attempt)}
+                                      className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                    >
+                                      👁️ Lihat Bukti
+                                    </button>
+                                  ) : (
+                                    <span className="text-[10px] text-gray-400">📄 Tidak ada bukti</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(period)}
+                      <div className="flex flex-col gap-1">
+                        {getStatusBadge({ status: latestStatus })}
+                        {attemptHistory.length > 1 && (
+                          <span className="text-xs text-gray-500">
+                            Total {attemptHistory.length} percobaan{rejectedCount > 0 ? ` · ${rejectedCount} ditolak` : ""}
+                          </span>
+                        )}
+                      </div>
                     </td>
                   </tr>
-                ))
+                );
+              })
               ) : (
                 <tr>
                   <td colSpan="6" className="px-6 py-12 text-center">
@@ -952,7 +1026,10 @@ const MemberDetail = () => {
             {/* Header Modal */}
             <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-pink-50 to-rose-50">
               <h3 className="text-lg font-semibold text-gray-900">
-                📄 Bukti Pembayaran - Periode {selectedProof.period}
+                📄 Bukti Pembayaran - Periode {selectedProof.periodNumber}
+                {selectedProof.attempt && (
+                  <span className="text-sm text-gray-500 font-normal"> (Attempt #{selectedProof.attempt.attemptNumber})</span>
+                )}
               </h3>
               <button
                 onClick={() => setShowProofModal(false)}
@@ -965,12 +1042,34 @@ const MemberDetail = () => {
             {/* Content Modal */}
             <div className="p-4 max-h-[calc(90vh-120px)] overflow-auto">
               <div className="text-center">
+                {selectedProof.attempt && (
+                  <div className="mb-4 text-sm text-gray-600 text-left">
+                    <p className="font-medium text-gray-700">
+                      Attempt #{selectedProof.attempt.attemptNumber} · {selectedProof.attempt.status}
+                    </p>
+                    <div className="mt-1">{getStatusBadge({ status: selectedProof.attempt.status })}</div>
+                    {selectedProof.attempt.description && (
+                      <p className="mt-1 text-gray-500">
+                        Keterangan: {selectedProof.attempt.description}
+                      </p>
+                    )}
+                    {(selectedProof.attempt.createdAt || selectedProof.attempt.updatedAt) && (
+                      <p className="mt-1 text-gray-400 text-xs">
+                        Dibuat: {selectedProof.attempt.createdAt ? new Date(selectedProof.attempt.createdAt).toLocaleString("id-ID") : '-' }
+                        {selectedProof.attempt.updatedAt && (
+                          <> · Terakhir diperbarui: {new Date(selectedProof.attempt.updatedAt).toLocaleString("id-ID")}</>
+                        )}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {isImageFile(selectedProof.file) ? (
                   // Tampilkan gambar
                   <div className="space-y-4">
                     <img
                       src={selectedProof.url}
-                      alt={`Bukti pembayaran periode ${selectedProof.period}`}
+                      alt={`Bukti pembayaran periode ${selectedProof.periodNumber}`}
                       className="max-w-full max-h-[60vh] mx-auto rounded-lg shadow-lg"
                       onError={(e) => {
                         // Try fallback URL once if primary fails
@@ -995,7 +1094,7 @@ const MemberDetail = () => {
                     <iframe
                       src={selectedProof.url}
                       className="w-full h-[60vh] border rounded-lg"
-                      title={`Bukti pembayaran periode ${selectedProof.period}`}
+                      title={`Bukti pembayaran periode ${selectedProof.periodNumber}`}
                     />
                     <p className="text-sm text-gray-600">
                       📁 File: {selectedProof.file}

@@ -50,6 +50,14 @@ const savingsSchema = new mongoose.Schema(
       enum: ["Pending", "Approved", "Rejected"],
       default: "Pending",
     },
+    retryGroup: {
+      type: String,
+      index: true,
+    },
+    attemptNumber: {
+      type: Number,
+      default: 1,
+    },
   },
   {
     timestamps: true,
@@ -78,6 +86,7 @@ savingsSchema.virtual("product", {
 savingsSchema.index({ memberId: 1, createdAt: -1 });
 savingsSchema.index({ productId: 1, createdAt: -1 });
 savingsSchema.index({ status: 1, createdAt: -1 });
+savingsSchema.index({ retryGroup: 1, attemptNumber: -1 });
 
 // Pre-save hook untuk generate UUID
 savingsSchema.pre("save", async function (next) {
@@ -87,6 +96,13 @@ savingsSchema.pre("save", async function (next) {
     const random = Math.random().toString(36).substr(2, 5);
     this.uuid = `SAVINGS_${timestamp}_${random}`.toUpperCase();
   }
+
+  if (!this.retryGroup) {
+    const memberId = this.memberId ? this.memberId.toString() : "UNKNOWN";
+    const productId = this.productId ? this.productId.toString() : "UNKNOWN";
+    this.retryGroup = `${memberId}_${productId}_${this.installmentPeriod}`;
+  }
+
   next();
 });
 
