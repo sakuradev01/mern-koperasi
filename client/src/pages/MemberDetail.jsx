@@ -345,9 +345,11 @@ const MemberDetail = () => {
         import.meta.env.VITE_SERVER_URL ||
         "http://localhost:5000";
 
-      // Primary and fallback URLs
-      const primaryUrl = `${baseApi}/${proofFile}`;
-      const fallbackUrl = `${baseApi}/api/${proofFile}`;
+      // Primary and fallback URLs - fix double slash issue
+      const cleanBaseApi = baseApi.replace(/\/$/, ''); // Remove trailing slash
+      const cleanProofFile = proofFile.replace(/^\//, ''); // Remove leading slash
+      const primaryUrl = `${cleanBaseApi}/${cleanProofFile}`;
+      const fallbackUrl = `${cleanBaseApi}/api/${cleanProofFile}`;
 
       console.log("Proof file:", proofFile); // Debug
       console.log("Generated URL primary:", primaryUrl); // Debug

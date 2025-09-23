@@ -757,9 +757,11 @@ const Savings = () => {
   const handleShowProof = (proofFile, saving) => {
     if (proofFile && proofFile !== "0") {
       // Primary: direct /uploads (served by Nginx if configured)
-      const primaryUrl = `${API_URL}/${proofFile}`;
+      const cleanApiUrl = API_URL.replace(/\/$/, ''); // Remove trailing slash
+      const cleanProofFile = proofFile.replace(/^\//, ''); // Remove leading slash
+      const primaryUrl = `${cleanApiUrl}/${cleanProofFile}`;
       // Fallback: proxy via backend /api/uploads (always proxied by Nginx)
-      const fallbackUrl = `${API_URL}/api/${proofFile}`;
+      const fallbackUrl = `${cleanApiUrl}/api/${cleanProofFile}`;
 
       setSelectedProof({
         file: proofFile,
