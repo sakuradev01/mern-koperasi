@@ -32,7 +32,8 @@ const Savings = () => {
   // Filter dan pagination states
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [dateFilter, setDateFilter] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [showProofModal, setShowProofModal] = useState(false);
@@ -587,9 +588,11 @@ const Savings = () => {
     const memberName = getMemberName(saving.memberId).toLowerCase();
     const matchesSearch = memberName.includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "" || saving.status === statusFilter;
-    const matchesDate =
-      dateFilter === "" ||
-      format(new Date(saving.savingsDate), "yyyy-MM-dd") === dateFilter;
+    
+    const savingDate = new Date(saving.savingsDate);
+    const matchesStartDate = startDate === "" || savingDate >= new Date(startDate);
+    const matchesEndDate = endDate === "" || savingDate <= new Date(endDate + 'T23:59:59');
+    const matchesDate = matchesStartDate && matchesEndDate;
 
     return matchesSearch && matchesStatus && matchesDate;
   });
@@ -610,8 +613,11 @@ const Savings = () => {
       case "status":
         setStatusFilter(value);
         break;
-      case "date":
-        setDateFilter(value);
+      case "startDate":
+        setStartDate(value);
+        break;
+      case "endDate":
+        setEndDate(value);
         break;
       default:
         break;
@@ -716,7 +722,7 @@ const Savings = () => {
 
       {/* Filter dan Search */}
       <div className="bg-white rounded-lg shadow border border-pink-100 p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           {/* Search by Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -748,15 +754,28 @@ const Savings = () => {
             </select>
           </div>
 
-          {/* Filter by Date */}
+          {/* Filter by Start Date */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              📅 Filter Tanggal
+              📅 Tanggal Mulai
             </label>
             <input
               type="date"
-              value={dateFilter}
-              onChange={(e) => handleFilterChange("date", e.target.value)}
+              value={startDate}
+              onChange={(e) => handleFilterChange("startDate", e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+            />
+          </div>
+
+          {/* Filter by End Date */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              📅 Tanggal Selesai
+            </label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => handleFilterChange("endDate", e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
             />
           </div>
@@ -767,7 +786,8 @@ const Savings = () => {
               onClick={() => {
                 setSearchTerm("");
                 setStatusFilter("");
-                setDateFilter("");
+                setStartDate("");
+                setEndDate("");
                 setCurrentPage(1);
               }}
               className="w-full bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 transition-colors"
@@ -913,7 +933,7 @@ const Savings = () => {
                       <span className="text-4xl mb-4 block">📊</span>
                       <p className="text-lg font-medium">Tidak Ada Data</p>
                       <p className="text-sm">
-                        {searchTerm || statusFilter || dateFilter
+                        {searchTerm || statusFilter || startDate || endDate
                           ? "Tidak ada data yang sesuai dengan filter"
                           : "Belum ada data simpanan"}
                       </p>
