@@ -1048,6 +1048,18 @@ const Savings = () => {
                     </td>
                     <td className="hidden lg:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {saving.installmentPeriod || 1} bulan
+                      <span className="text-gray-500">
+                        {(() => {
+                          const now = new Date();
+                          const period = saving.installmentPeriod || 1;
+                          const projectionDate = new Date(
+                            now.getFullYear(),
+                            now.getMonth() + period,
+                            1
+                          );
+                          return ` (${format(projectionDate, "MMMM yyyy", { locale: id })})`;
+                        })()}
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
                       {formatCurrency(saving.amount)}
