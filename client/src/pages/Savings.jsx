@@ -398,11 +398,18 @@ const Savings = () => {
         try {
           const formDataToSend = new FormData();
 
-          // Kirim semua field untuk create dan update
+          // Kirim semua field untuk create dan update, tapi JANGAN kirim proofFile jika tidak ada file baru
           Object.keys(formData).forEach((key) => {
-            if (formData[key] !== null && formData[key] !== undefined) {
-              formDataToSend.append(key, formData[key]);
+            const value = formData[key];
+            if (value === null || value === undefined) return;
+            if (key === "proofFile") {
+              // Hanya kirim jika benar-benar file baru (instance File)
+              if (value instanceof File) {
+                formDataToSend.append(key, value);
+              }
+              return;
             }
+            formDataToSend.append(key, value);
           });
 
           console.log("📋 Form data prepared:", {
@@ -463,21 +470,62 @@ const Savings = () => {
             errorMessage = "Request timeout. Server tidak meresponse dalam 30 detik.";
           } else if (error.response?.data?.message) {
             errorMessage = error.response.data.message;
+          } else if (error.response?.data?.error) {
+            // Some endpoints may respond with { error: "..." }
+            errorMessage = error.response.data.error;
           } else if (error.message) {
             errorMessage = error.message;
           }
 
+          // If response data is a string (e.g., HTML from Express default handler), try to extract meaningful message
+          if (/^Request failed with status code/i.test(errorMessage)) {
+            const raw = error.response?.data;
+            if (typeof raw === 'string') {
+              try {
+                // Try parse JSON string first
+                const maybeJson = JSON.parse(raw);
+                if (maybeJson?.message) errorMessage = maybeJson.message;
+              } catch (_) {
+                // Strip HTML tags and take first 200 chars as fallback
+                const text = raw.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+                if (text) errorMessage = text.slice(0, 200);
+              }
+            }
+          }
+
           // Handle specific backend validation errors
           const newErrors = {};
-          if (errorMessage.includes("periode") && errorMessage.includes("sudah pernah")) {
+          // Coba petakan array errors jika tersedia (Joi atau validasi lain)
+          const serverErrors = error.response?.data?.errors;
+          if (Array.isArray(serverErrors) && serverErrors.length > 0) {
+            serverErrors.forEach((errItem) => {
+              const msg = errItem?.message || errItem;
+              const path = Array.isArray(errItem?.path) ? errItem.path[0] : errItem?.path;
+              if (path === "amount" || /jumlah/i.test(msg)) newErrors.amount = msg;
+              if (path === "memberId" || /anggota|member/i.test(msg)) newErrors.memberId = msg;
+              if (path === "productId" || /produk|product/i.test(msg)) newErrors.productId = msg;
+              if (path === "savingsDate" || /tanggal|date/i.test(msg)) newErrors.savingsDate = msg;
+              if (path === "description" || /keterangan|description/i.test(msg)) newErrors.description = msg;
+              if (path === "status" || /status/i.test(msg)) newErrors.status = msg;
+              if (/bukti|upload|file/i.test(msg)) newErrors.proofFile = msg;
+            });
+          }
+          if (errorMessage.match(/periode/i) && errorMessage.match(/sudah pernah|duplikat|sudah ada/i)) {
             newErrors.installmentPeriod = "Periode ini sudah pernah ditambahkan untuk member dan produk ini";
           }
 
-          if (errorMessage.includes("minimal")) {
+          if (errorMessage.match(/minimal|lebih dari|positif/i)) {
             newErrors.amount = errorMessage;
           }
 
+          if (errorMessage.match(/periode|minimal 1/i)) {
+            newErrors.installmentPeriod = errorMessage;
+          }
+
           if (errorMessage.includes("bukti") || errorMessage.includes("upload") || errorMessage.includes("file")) {
+            newErrors.proofFile = errorMessage;
+          }
+          if (errorMessage.match(/5mb|ukuran|size/i)) {
             newErrors.proofFile = errorMessage;
           }
 
@@ -502,14 +550,11 @@ const Savings = () => {
           }
 
           // Show detailed validation errors if available
-          if (error.response?.status === 400) {
-            toast.error(`❌ ${errorMessage}`);
-          } else if (error.response?.status === 404) {
-            toast.error(`❌ Data Tidak Ditemukan: ${errorMessage}`);
-          } else if (error.response?.status === 500) {
+          // Selalu tampilkan toast agar user tahu ada kegagalan
+          if (error.response?.status === 500) {
             toast.error(`❌ Server Error: ${errorMessage}. Silakan coba lagi.`);
           } else {
-            toast.error(`❌ Error: ${errorMessage}`);
+            toast.error(`❌ ${errorMessage}`);
           }
         } finally {
           console.log("🔄 Finally block - resetting isSubmitting");
@@ -1588,12 +1633,22 @@ const Savings = () => {
                     onChange={(e) =>
                       setFormData({ ...formData, status: e.target.value })
                     }
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    className={`mt-1 block w-full rounded-md shadow-sm focus:ring-blue-500 ${
+                      errors.status
+                        ? "border-red-300 focus:border-red-500 bg-red-50"
+                        : "border-gray-300 focus:border-blue-500"
+                    }`}
                   >
                     <option value="Pending">Pending</option>
                     <option value="Approved">Approved</option>
                     <option value="Rejected">Rejected</option>
                   </select>
+                  {errors.status && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center">
+                      <span className="mr-1">⚠️</span>
+                      {errors.status}
+                    </p>
+                  )}
                 </div>
 
                 <div>
