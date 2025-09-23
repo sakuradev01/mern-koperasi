@@ -295,7 +295,13 @@ const Savings = () => {
         
         // Update description berdasarkan upgrade status
         if (upgradeInfo && upgradeInfo.isUpgradePeriod) {
-          updateData.description = `Simpanan periode ${next} - Upgrade (${formatCurrency(upgradeInfo.oldAmount)} → ${formatCurrency(upgradeInfo.newAmount)} + kompensasi ${formatCurrency(upgradeInfo.compensation)})`;
+          const baseDesc = `Simpanan periode ${next} - Upgrade (${formatCurrency(upgradeInfo.oldAmount)} → ${formatCurrency(upgradeInfo.newAmount)} + kompensasi ${formatCurrency(upgradeInfo.compensation)})`;
+          if (typeof upgradeInfo.roundingAdjustment === 'number' && upgradeInfo.roundingAdjustment !== 0) {
+            const sign = upgradeInfo.roundingAdjustment > 0 ? '+' : '';
+            updateData.description = `${baseDesc} + penyesuaian pembulatan ${sign}${formatCurrency(upgradeInfo.roundingAdjustment)}`;
+          } else {
+            updateData.description = baseDesc;
+          }
         } else {
           updateData.description = `Simpanan bulanan periode ${next}`;
         }

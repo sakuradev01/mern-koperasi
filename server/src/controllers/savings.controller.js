@@ -109,20 +109,36 @@ const createSavings = asyncHandler(async (req, res) => {
   let currentProduct = member.productId;
   let expectedAmount = currentProduct.depositAmount;
   let upgradeInfo = null;
+  const term = currentProduct.termDuration || 12;
   
   // Cek apakah ada upgrade aktif untuk member ini
   const activeUpgrade = await ProductUpgrade.findOne({
     memberId: member._id,
     status: "Active"
-  });
+  }).populate([
+    { path: "oldProduct", select: "depositAmount" },
+    { path: "newProduct", select: "depositAmount" }
+  ]);
   
   if (activeUpgrade && installmentPeriod > activeUpgrade.periodWhenUpgraded) {
-    // Jika ada upgrade aktif dan periode ini setelah upgrade, gunakan nominal baru
-    expectedAmount = activeUpgrade.newMonthlyAmount;
+    // Setelah upgrade: gunakan newMonthlyAmount (sudah termasuk kompensasi bulanan)
+    const baseMonthly = activeUpgrade.newMonthlyAmount || 0;
+    expectedAmount = baseMonthly;
+
+    // Jika ini periode terakhir, tambahkan penyesuaian pembulatan agar total = newProduct.depositAmount * term
+    if (installmentPeriod === term) {
+      const monthsBefore = activeUpgrade.periodWhenUpgraded; // periode sebelum upgrade
+      const oldAmount = activeUpgrade.oldProduct?.depositAmount || currentProduct.depositAmount || 0;
+      const targetTotal = (activeUpgrade.newProduct?.depositAmount || currentProduct.depositAmount || 0) * term;
+      const sumBase = (oldAmount * monthsBefore) + (baseMonthly * (term - monthsBefore));
+      const delta = targetTotal - sumBase; // bisa negatif/positif
+      expectedAmount += delta;
+    }
+
     upgradeInfo = {
       isUpgradePeriod: true,
-      oldAmount: currentProduct.depositAmount,
-      newAmount: activeUpgrade.newMonthlyAmount,
+      oldAmount: activeUpgrade.oldProduct?.depositAmount || currentProduct.depositAmount,
+      newAmount: activeUpgrade.newProduct?.depositAmount || currentProduct.depositAmount,
       compensation: activeUpgrade.compensationPerMonth
     };
     console.log(`🚀 Upgrade detected for period ${installmentPeriod}, expected amount: ${expectedAmount}`);
@@ -291,43 +307,60 @@ const updateSavings = asyncHandler(async (req, res) => {
     }
   }
 
-  if (updateData.productId) {
-    const product = await Product.findById(updateData.productId);
-    if (!product) {
+  if (updateData.productId || updateData.amount) {
+    // Ambil produk saat ini untuk term duration
+    const member = await Member.findById(existingSavings.memberId).populate("productId");
+    const currentProduct = member?.productId;
+    if (!currentProduct) {
       throw new ApiError(404, "Produk tidak ditemukan");
     }
 
-    // PERBAIKAN: Validasi amount terhadap product dengan mempertimbangkan upgrade
+    // PERBAIKAN: Validasi amount terhadap product dengan mempertimbangkan upgrade + penyesuaian pembulatan di periode terakhir
     if (updateData.amount) {
-      let expectedAmount = product.depositAmount;
+      let expectedAmount = currentProduct.depositAmount;
       let upgradeInfo = null;
-      
-      // Cek apakah ada upgrade aktif untuk member ini
+      const term = currentProduct.termDuration || 12;
+
+      // Cek upgrade aktif (lengkap dengan populate)
       const activeUpgrade = await ProductUpgrade.findOne({
         memberId: existingSavings.memberId,
         status: "Active"
-      });
-      
+      }).populate([
+        { path: "oldProduct", select: "depositAmount" },
+        { path: "newProduct", select: "depositAmount" }
+      ]);
+
       if (activeUpgrade && existingSavings.installmentPeriod > activeUpgrade.periodWhenUpgraded) {
-        // Jika ada upgrade aktif dan periode ini setelah upgrade, gunakan nominal baru
-        expectedAmount = activeUpgrade.newMonthlyAmount;
+        const baseMonthly = activeUpgrade.newMonthlyAmount || 0; // sudah termasuk kompensasi
+        expectedAmount = baseMonthly;
+
+        // Jika ini periode terakhir, tambahkan penyesuaian pembulatan agar total genap
+        if (existingSavings.installmentPeriod === term) {
+          const monthsBefore = activeUpgrade.periodWhenUpgraded; // periode sebelum upgrade
+          const oldAmount = activeUpgrade.oldProduct?.depositAmount || currentProduct.depositAmount || 0;
+          const targetTotal = (activeUpgrade.newProduct?.depositAmount || currentProduct.depositAmount || 0) * term;
+          const sumBase = (oldAmount * monthsBefore) + (baseMonthly * (term - monthsBefore));
+          const delta = targetTotal - sumBase;
+          expectedAmount += delta;
+        }
+
         upgradeInfo = {
           isUpgradePeriod: true,
-          oldAmount: product.depositAmount,
-          newAmount: activeUpgrade.newMonthlyAmount,
+          oldAmount: activeUpgrade.oldProduct?.depositAmount || currentProduct.depositAmount,
+          newAmount: activeUpgrade.newProduct?.depositAmount || currentProduct.depositAmount,
           compensation: activeUpgrade.compensationPerMonth
         };
         console.log(`🚀 Update: Upgrade detected for period ${existingSavings.installmentPeriod}, expected amount: ${expectedAmount}`);
       }
-      
+
       if (updateData.amount < expectedAmount) {
         const errorMessage = upgradeInfo 
-          ? `Jumlah simpanan minimal ${formatCurrencyUpdate(expectedAmount)} (termasuk kompensasi upgrade ${formatCurrencyUpdate(upgradeInfo.compensation)})`
+          ? `Jumlah simpanan minimal ${formatCurrencyUpdate(expectedAmount)}${upgradeInfo.compensation ? ` (termasuk kompensasi upgrade ${formatCurrencyUpdate(upgradeInfo.compensation)})` : ''}`
           : `Jumlah simpanan minimal ${formatCurrencyUpdate(expectedAmount)}`;
         throw new ApiError(400, errorMessage);
       }
     }
-    
+
     // Helper function untuk format currency di error message update
     function formatCurrencyUpdate(amount) {
       return new Intl.NumberFormat("id-ID", {
@@ -540,17 +573,41 @@ const getLastInstallmentPeriod = asyncHandler(async (req, res) => {
       const activeUpgrade = await ProductUpgrade.findOne({
         memberId: member._id,
         status: "Active"
-      });
-      
+      }).populate([
+        { path: "oldProduct", select: "depositAmount" },
+        { path: "newProduct", select: "depositAmount" }
+      ]);
+
       if (activeUpgrade && nextPeriod > activeUpgrade.periodWhenUpgraded) {
-        expectedAmount = activeUpgrade.newMonthlyAmount;
-        upgradeInfo = {
-          isUpgradePeriod: true,
-          oldAmount: member.productId.depositAmount,
-          newAmount: activeUpgrade.newMonthlyAmount,
-          compensation: activeUpgrade.compensationPerMonth,
-          upgradeFromPeriod: activeUpgrade.periodWhenUpgraded + 1
-        };
+        const term = member.productId.termDuration || 12;
+        const baseMonthly = activeUpgrade.newMonthlyAmount || 0; // sudah termasuk kompensasi
+        expectedAmount = baseMonthly;
+
+        // Jika ini periode terakhir, tambahkan penyesuaian pembulatan agar total genap
+        if (nextPeriod === term) {
+          const monthsBefore = activeUpgrade.periodWhenUpgraded; // periode sudah lewat sebelum upgrade
+          const oldAmount = activeUpgrade.oldProduct?.depositAmount || member.productId.depositAmount || 0;
+          const targetTotal = (activeUpgrade.newProduct?.depositAmount || member.productId.depositAmount || 0) * term;
+          const sumBase = (oldAmount * monthsBefore) + (baseMonthly * (term - monthsBefore));
+          const delta = targetTotal - sumBase; // bisa negatif/positif
+          expectedAmount += delta;
+          upgradeInfo = {
+            isUpgradePeriod: true,
+            oldAmount: oldAmount,
+            newAmount: activeUpgrade.newProduct?.depositAmount || member.productId.depositAmount,
+            compensation: activeUpgrade.compensationPerMonth,
+            upgradeFromPeriod: activeUpgrade.periodWhenUpgraded + 1,
+            roundingAdjustment: delta
+          };
+        } else {
+          upgradeInfo = {
+            isUpgradePeriod: true,
+            oldAmount: activeUpgrade.oldProduct?.depositAmount || member.productId.depositAmount,
+            newAmount: activeUpgrade.newProduct?.depositAmount || member.productId.depositAmount,
+            compensation: activeUpgrade.compensationPerMonth,
+            upgradeFromPeriod: activeUpgrade.periodWhenUpgraded + 1
+          };
+        }
       }
     }
   } catch (error) {
@@ -684,10 +741,10 @@ const getStudentDashboardSavings = asyncHandler(async (req, res) => {
 
     // PERBAIKAN: Tentukan proyeksi berdasarkan upgrade status
     let projectionAmount = product.depositAmount; // Default: nominal saat ini
-    
+
     if (activeUpgrade && i >= upgradeStartPeriod) {
-      // Periode setelah upgrade: gunakan nominal baru + kompensasi
-      projectionAmount = activeUpgrade.newMonthlyAmount;
+      // Periode setelah upgrade: gunakan newMonthlyAmount (sudah termasuk kompensasi)
+      projectionAmount = activeUpgrade.newMonthlyAmount || 0;
     } else if (activeUpgrade && activeUpgrade.oldProduct) {
       // Periode sebelum upgrade: gunakan nominal asli dari oldProduct
       projectionAmount = activeUpgrade.oldProduct.depositAmount;
@@ -703,6 +760,27 @@ const getStudentDashboardSavings = asyncHandler(async (req, res) => {
       payment_proof: realizationProofFileMap[i] || 0,
       status: realizationStatusMap[i] || "Not Submitted",
     });
+  }
+
+  // PENYESUAIAN PEMBULATAN: genapkan total agar sesuai target x durasi
+  try {
+    const term = product.termDuration;
+    // Target total tetap berdasarkan deposit produk baru (tanpa kompensasi)
+    let targetTotal = (activeUpgrade && activeUpgrade.newProduct)
+      ? (activeUpgrade.newProduct.depositAmount || 0) * term
+      : (product.depositAmount || 0) * term;
+
+    const currentSum = delivered.reduce((sum, p) => sum + (parseInt(p.projection) || 0), 0);
+    const delta = targetTotal - currentSum;
+    if (delta !== 0 && delivered.length > 0) {
+      const lastIdx = delivered.length - 1;
+      const lastVal = parseInt(delivered[lastIdx].projection) || 0;
+      delivered[lastIdx].projection = (lastVal + delta).toString();
+      delivered[lastIdx].rounding_adjustment = delta;
+      console.log("Applied rounding adjustment on dashboard projection:", delta);
+    }
+  } catch (e) {
+    console.warn("Rounding adjustment failed on dashboard:", e?.message);
   }
 
   res.status(200).json(delivered);

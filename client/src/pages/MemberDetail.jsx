@@ -136,20 +136,22 @@ const MemberDetail = () => {
           const productInfo = memberData.product;
           const termDuration = productInfo?.termDuration || 12;
           
-  // PERBAIKAN: Simpan nominal asli sebelum upgrade
+          // PERBAIKAN: Simpan nominal asli sebelum upgrade
           let originalDepositAmount = productInfo?.depositAmount || 0;
           let upgradeStartPeriod = null;
           let isUpgraded = false;
+          let compensationPerMonth = 0; // kompensasi bulanan (dibulatkan)
           
           // Jika ada upgrade aktif, gunakan nominal lama dari upgrade record
           if (activeUpgrade) {
             upgradeStartPeriod = activeUpgrade.periodWhenUpgraded + 1;
             isUpgraded = true;
-            // PENTING: Gunakan oldProduct depositAmount dari upgrade record untuk proyeksi periode awal
+            // PENTING: Gunakan oldProduct depositAmount dari upgrade record untuk periode sebelum upgrade
             originalDepositAmount = activeUpgrade.oldProduct?.depositAmount || originalDepositAmount;
+            compensationPerMonth = activeUpgrade.compensationPerMonth || 0;
             console.log("Upgrade active from period:", upgradeStartPeriod);
             console.log("Original deposit amount:", originalDepositAmount);
-            console.log("New deposit amount:", activeUpgrade.newMonthlyAmount);
+            console.log("New deposit amount:", activeUpgrade.newMonthlyAmount, "Compensation per month:", compensationPerMonth);
           }
 
           // Create map dari existing savings berdasarkan installment period
@@ -184,8 +186,8 @@ const MemberDetail = () => {
             let projectionAmount;
             
             if (isUpgraded && period >= upgradeStartPeriod) {
-              // Untuk periode setelah upgrade, gunakan nominal baru + kompensasi
-              projectionAmount = activeUpgrade.newMonthlyAmount;
+              // Setelah upgrade, gunakan newMonthlyAmount (sudah termasuk kompensasi)
+              projectionAmount = activeUpgrade.newMonthlyAmount || 0;
             } else {
               // Untuk periode sebelum upgrade atau tidak ada upgrade, gunakan nominal asli
               projectionAmount = originalDepositAmount;
@@ -204,11 +206,33 @@ const MemberDetail = () => {
               status: existingSaving ? existingSaving.status : "Belum Bayar",
               isUpgradePeriod: activeUpgrade && period >= upgradeStartPeriod,
               upgradeInfo: activeUpgrade && period >= upgradeStartPeriod ? {
-                oldAmount: originalDepositAmount, // Gunakan nominal asli, bukan yang sudah berubah
-                newAmount: activeUpgrade.newMonthlyAmount,
+                oldAmount: originalDepositAmount, // deposit lama
+                newAmount: activeUpgrade.newProduct?.depositAmount || 0, // deposit baru (tanpa kompensasi)
                 compensation: activeUpgrade.compensationPerMonth
               } : null
             });
+          }
+
+          // PENYESUAIAN PEMBULATAN: genapkan total agar sesuai target x durasi dengan menambahkan selisih ke periode terakhir
+          try {
+            const term = termDuration;
+            let targetTotal = (productInfo?.depositAmount || 0) * term;
+            if (isUpgraded && activeUpgrade?.newProduct?.depositAmount) {
+              targetTotal = (activeUpgrade.newProduct.depositAmount || 0) * term;
+            }
+
+            const currentSum = convertedData.reduce((sum, p) => sum + (parseInt(p.projection) || 0), 0);
+            const delta = targetTotal - currentSum; // bisa positif/negatif, biasanya kecil (akibat pembulatan)
+
+            if (delta !== 0 && convertedData.length > 0) {
+              const lastIdx = convertedData.length - 1;
+              const lastVal = parseInt(convertedData[lastIdx].projection) || 0;
+              convertedData[lastIdx].projection = (lastVal + delta).toString();
+              convertedData[lastIdx].rounding_adjustment = delta; // info tambahan
+              console.log("Applied rounding adjustment to last period:", delta);
+            }
+          } catch (adjErr) {
+            console.warn("Rounding adjustment failed:", adjErr?.message);
           }
 
           console.log("Final converted data:", convertedData); // Debug
@@ -747,8 +771,13 @@ const MemberDetail = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-col">
-                        <span className={`text-sm font-semibold ${period.isUpgradePeriod ? 'text-orange-600' : 'text-blue-600'}`}>
+                        <span className={`text-sm font-semibold ${period.isUpgradePeriod ? 'text-orange-600' : 'text-blue-600'} flex items-center gap-2`}>
                           {formatCurrency(parseInt(period.projection) || 0)}
+                          {typeof period.rounding_adjustment === 'number' && period.rounding_adjustment !== 0 && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-800">
+                              🎯 Pembulatan {period.rounding_adjustment > 0 ? '+' : ''}{formatCurrency(Math.abs(period.rounding_adjustment))}
+                            </span>
+                          )}
                         </span>
                         {period.isUpgradePeriod && (
                           <div className="text-xs text-orange-500 mt-1">
