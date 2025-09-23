@@ -182,18 +182,27 @@ const createSavings = asyncHandler(async (req, res) => {
   await savings.save();
   console.log("✅ Savings created successfully");
 
-  // TAMBAHAN: Sync file ke web root setelah upload berhasil
+  // TAMBAHAN: Sync file ke web root setelah upload berhasil (background process)
   if (req.file && req.file.path) {
     try {
       const { exec } = await import('child_process');
       const { promisify } = await import('util');
       const execAsync = promisify(exec);
-      
-      // Run sync script untuk copy file ke web root
-      await execAsync('sudo /usr/local/bin/sync-uploads.sh');
-      console.log('✅ Admin upload file synced to web root successfully');
+
+      // Run sync script di background dengan timeout 5 detik
+      const syncPromise = execAsync('sudo /usr/local/bin/sync-uploads.sh', {
+        timeout: 5000,
+        stdio: 'pipe'
+      });
+
+      // Jangan tunggu sync selesai, kirim response dulu
+      syncPromise.catch(syncError => {
+        console.error('⚠️ Admin file sync failed (non-critical):', syncError.message);
+      });
+
+      console.log('✅ Admin file sync started in background');
     } catch (syncError) {
-      console.error('⚠️ Admin file sync failed (non-critical):', syncError.message);
+      console.error('⚠️ Failed to start file sync (non-critical):', syncError.message);
       // Don't throw error, file upload still successful
     }
   }
@@ -246,17 +255,26 @@ const updateSavings = asyncHandler(async (req, res) => {
     updateData.proofFile = req.file.path;
     console.log("✅ File uploaded successfully:", req.file.path);
     
-    // TAMBAHAN: Sync file ke web root setelah update upload berhasil
+    // TAMBAHAN: Sync file ke web root setelah update upload berhasil (background process)
     try {
       const { exec } = await import('child_process');
       const { promisify } = await import('util');
       const execAsync = promisify(exec);
-      
-      // Run sync script untuk copy file ke web root
-      await execAsync('sudo /usr/local/bin/sync-uploads.sh');
-      console.log('✅ Update upload file synced to web root successfully');
+
+      // Run sync script di background dengan timeout 5 detik
+      const syncPromise = execAsync('sudo /usr/local/bin/sync-uploads.sh', {
+        timeout: 5000,
+        stdio: 'pipe'
+      });
+
+      // Jangan tunggu sync selesai, kirim response dulu
+      syncPromise.catch(syncError => {
+        console.error('⚠️ Update file sync failed (non-critical):', syncError.message);
+      });
+
+      console.log('✅ Update file sync started in background');
     } catch (syncError) {
-      console.error('⚠️ Update file sync failed (non-critical):', syncError.message);
+      console.error('⚠️ Failed to start update file sync (non-critical):', syncError.message);
       // Don't throw error, file upload still successful
     }
   }

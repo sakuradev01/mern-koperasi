@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { toast } from "react-toastify";
 import { API_URL } from "../api/config";
+import ConfirmDialog from "../components/common/ConfirmDialog";
 
 const Savings = () => {
   const [savings, setSavings] = useState([]);
@@ -39,18 +40,47 @@ const Savings = () => {
   const [showProofModal, setShowProofModal] = useState(false);
   const [selectedProof, setSelectedProof] = useState(null);
   
+  // Confirmation dialog states
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [confirmDialogConfig, setConfirmDialogConfig] = useState({
+    title: "",
+    message: "",
+    confirmText: "Ya",
+    cancelText: "Batal",
+    type: "info",
+    onConfirm: () => {},
+  });
+  
   // Validation states
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Function to show confirmation dialog
+  const showConfirmation = (title, message, onConfirm, type = "info", confirmText = "Ya", cancelText = "Batal") => {
+    setConfirmDialogConfig({
+      title,
+      message,
+      confirmText,
+      cancelText,
+      type,
+      onConfirm,
+    });
+    setShowConfirmDialog(true);
+  };
 
   // Fetch data
   const fetchSavings = async (page = 1, limit = 100) => {
     try {
       const token = localStorage.getItem("token");
+
       const response = await axios.get(
         `${API_URL}/api/savings?page=${page}&limit=${limit}`,
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          },
         }
       );
       const data =
@@ -102,6 +132,38 @@ const Savings = () => {
     };
     loadData();
   }, []);
+
+  // Cleanup function to reset isSubmitting when component unmounts or modal closes
+  useEffect(() => {
+    return () => {
+      if (isSubmitting) {
+        setIsSubmitting(false);
+      }
+    };
+  }, [isSubmitting]);
+
+  // Reset isSubmitting when modal is closed
+  useEffect(() => {
+    if (!showModal && isSubmitting) {
+      setIsSubmitting(false);
+    }
+  }, [showModal, isSubmitting]);
+
+  // Fallback: Reset isSubmitting after 30 seconds as a safety net
+  useEffect(() => {
+    let timeout;
+    if (isSubmitting) {
+      timeout = setTimeout(() => {
+        console.warn("⚠️ Force resetting isSubmitting after 30 seconds timeout");
+        setIsSubmitting(false);
+      }, 30000);
+    }
+    return () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    };
+  }, [isSubmitting]);
 
   // Auto-fill product when member is selected
   useEffect(() => {
@@ -321,98 +383,142 @@ const Savings = () => {
       return;
     }
     
-    setIsSubmitting(true);
+    // Show confirmation dialog before submitting
+    const actionType = editingId ? "memperbarui" : "menambahkan";
+    const actionText = editingId ? "Perbarui Data" : "Tambah Data";
+    
+    showConfirmation(
+      `Konfirmasi ${actionType} Simpanan`,
+      `Apakah Anda yakin ingin ${actionType} data simpanan ini?`,
+      async () => {
+        console.log("🚀 Starting submission process...");
+        setIsSubmitting(true);
 
-    const formDataToSend = new FormData();
+        try {
+          const formDataToSend = new FormData();
 
-    // Kirim semua field untuk create dan update
-    Object.keys(formData).forEach((key) => {
-      if (formData[key] !== null && formData[key] !== undefined) {
-        formDataToSend.append(key, formData[key]);
-      }
-    });
+          // Kirim semua field untuk create dan update
+          Object.keys(formData).forEach((key) => {
+            if (formData[key] !== null && formData[key] !== undefined) {
+              formDataToSend.append(key, formData[key]);
+            }
+          });
 
-    try {
-      const token = localStorage.getItem("token");
+          console.log("📋 Form data prepared:", {
+            memberId: formData.memberId,
+            productId: formData.productId,
+            amount: formData.amount,
+            type: formData.type,
+            hasFile: !!formData.proofFile
+          });
 
-      if (editingId) {
-        // Update existing savings
-        await axios.put(`${API_URL}/api/savings/${editingId}`, formDataToSend, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        });
-        toast.success("Data simpanan berhasil diperbarui");
-      } else {
-        // Create new savings
-        await axios.post(`${API_URL}/api/savings`, formDataToSend, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        });
-        toast.success("Data simpanan berhasil ditambahkan");
-      }
+          const token = localStorage.getItem("token");
+          console.log("🔑 Token retrieved:", token ? "Token exists" : "No token");
 
-      setShowModal(false);
-      setEditingId(null);
-      resetForm();
-      fetchSavings();
-    } catch (error) {
-      console.error("❌ Error saving savings:", error);
-      console.error("❌ Error response:", error.response?.data);
+          if (editingId) {
+            console.log("✏️ Updating existing savings...");
+            // Update existing savings
+            await axios.put(`${API_URL}/api/savings/${editingId}`, formDataToSend, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "multipart/form-data",
+              },
+              timeout: 30000, // 30 seconds timeout
+            });
+            toast.success("✅ Data simpanan berhasil diperbarui");
+          } else {
+            console.log("➕ Creating new savings...");
+            // Create new savings
+            await axios.post(`${API_URL}/api/savings`, formDataToSend, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "multipart/form-data",
+              },
+              timeout: 30000, // 30 seconds timeout
+            });
+            toast.success("✅ Data simpanan berhasil ditambahkan");
+          }
 
-      // Extract specific validation errors from backend
-      const errorMessage = error.response?.data?.message || "Gagal menyimpan data";
-      
-      // Handle specific backend validation errors
-      const newErrors = {};
-      if (errorMessage.includes("periode") && errorMessage.includes("sudah pernah")) {
-        newErrors.installmentPeriod = "Periode ini sudah pernah ditambahkan untuk member dan produk ini";
-      }
-      
-      if (errorMessage.includes("minimal")) {
-        newErrors.amount = errorMessage;
-      }
-      
-      if (errorMessage.includes("bukti") || errorMessage.includes("upload") || errorMessage.includes("file")) {
-        newErrors.proofFile = errorMessage;
-      }
-      
-      if (errorMessage.includes("keterangan") || errorMessage.includes("description")) {
-        newErrors.description = errorMessage;
-      }
-      
-      if (errorMessage.includes("anggota") || errorMessage.includes("member")) {
-        newErrors.memberId = errorMessage;
-      }
-      
-      if (errorMessage.includes("produk") || errorMessage.includes("product")) {
-        newErrors.productId = errorMessage;
-      }
-      
-      if (errorMessage.includes("tanggal") || errorMessage.includes("date")) {
-        newErrors.savingsDate = errorMessage;
-      }
-      
-      if (Object.keys(newErrors).length > 0) {
-        setErrors(newErrors);
-      }
+          console.log("✅ Submission successful, scheduling modal close...");
+          // Tunggu sebentar sebelum menutup modal dan reset form
+          setTimeout(() => {
+            setShowModal(false);
+            setEditingId(null);
+            resetForm();
+            fetchSavings(1, 100); // Refresh data
+          }, 500);
+        } catch (error) {
+          console.error("❌ Error in submission process:", error);
+          console.error("❌ Error response:", error.response?.data);
+          console.error("❌ Error status:", error.response?.status);
+          console.error("❌ Error config:", error.config);
+          console.error("❌ Error code:", error.code);
+          console.error("❌ Error message:", error.message);
 
-      // Show detailed validation errors if available
-      if (error.response?.status === 400) {
-        toast.error(`❌ ${errorMessage}`);
-      } else if (error.response?.status === 404) {
-        toast.error(`❌ Data Tidak Ditemukan: ${errorMessage}`);
-      } else if (error.response?.status === 500) {
-        toast.error(`❌ Server Error: ${errorMessage}. Silakan coba lagi.`);
-      } else {
-        toast.error(`❌ Error: ${errorMessage}`);
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
+          // Handle different types of errors
+          let errorMessage = "Gagal menyimpan data";
+
+          if (error.code === 'ECONNABORTED') {
+            errorMessage = "Request timeout. Server tidak meresponse dalam 30 detik.";
+          } else if (error.response?.data?.message) {
+            errorMessage = error.response.data.message;
+          } else if (error.message) {
+            errorMessage = error.message;
+          }
+
+          // Handle specific backend validation errors
+          const newErrors = {};
+          if (errorMessage.includes("periode") && errorMessage.includes("sudah pernah")) {
+            newErrors.installmentPeriod = "Periode ini sudah pernah ditambahkan untuk member dan produk ini";
+          }
+
+          if (errorMessage.includes("minimal")) {
+            newErrors.amount = errorMessage;
+          }
+
+          if (errorMessage.includes("bukti") || errorMessage.includes("upload") || errorMessage.includes("file")) {
+            newErrors.proofFile = errorMessage;
+          }
+
+          if (errorMessage.includes("keterangan") || errorMessage.includes("description")) {
+            newErrors.description = errorMessage;
+          }
+
+          if (errorMessage.includes("anggota") || errorMessage.includes("member")) {
+            newErrors.memberId = errorMessage;
+          }
+
+          if (errorMessage.includes("produk") || errorMessage.includes("product")) {
+            newErrors.productId = errorMessage;
+          }
+
+          if (errorMessage.includes("tanggal") || errorMessage.includes("date")) {
+            newErrors.savingsDate = errorMessage;
+          }
+
+          if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
+          }
+
+          // Show detailed validation errors if available
+          if (error.response?.status === 400) {
+            toast.error(`❌ ${errorMessage}`);
+          } else if (error.response?.status === 404) {
+            toast.error(`❌ Data Tidak Ditemukan: ${errorMessage}`);
+          } else if (error.response?.status === 500) {
+            toast.error(`❌ Server Error: ${errorMessage}. Silakan coba lagi.`);
+          } else {
+            toast.error(`❌ Error: ${errorMessage}`);
+          }
+        } finally {
+          console.log("🔄 Finally block - resetting isSubmitting");
+          setIsSubmitting(false);
+        }
+      },
+      "info",
+      actionText,
+      "Batal"
+    );
   };
 
   const resetForm = () => {
@@ -484,46 +590,69 @@ const Savings = () => {
 
   // Handle approve
   const handleApprove = async (id) => {
-    if (window.confirm("Apakah Anda yakin ingin menyetujui simpanan ini?")) {
-      try {
-        const token = localStorage.getItem("token");
-        const formData = new FormData();
-        formData.append("status", "Approved");
+    showConfirmation(
+      "Konfirmasi Persetujuan Simpanan",
+      "Apakah Anda yakin ingin menyetujui simpanan ini?",
+      async () => {
+        try {
+          const token = localStorage.getItem("token");
+          const formData = new FormData();
+          formData.append("status", "Approved");
 
-        await axios.put(`${API_URL}/api/savings/${id}`, formData, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        });
-        toast.success("Simpanan berhasil disetujui");
-        fetchSavings();
-      } catch (error) {
-        toast.error(
-          error.response?.data?.message || "Gagal menyetujui simpanan"
-        );
-      }
-    }
+          await axios.put(`${API_URL}/api/savings/${id}`, formData, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "multipart/form-data",
+            },
+          });
+          toast.success("✅ Simpanan berhasil disetujui");
+          // Tunggu sebentar sebelum fetch data untuk memastikan backend sudah update
+          setTimeout(() => {
+            fetchSavings(1, 100); // Refresh data
+          }, 300);
+        } catch (error) {
+          toast.error(
+            `❌ ${error.response?.data?.message || "Gagal menyetujui simpanan"}`
+          );
+        }
+      },
+      "info",
+      "Setujui",
+      "Batal"
+    );
   };
 
   // Handle delete
   const handleDelete = async (id) => {
-    if (window.confirm("Apakah Anda yakin ingin menghapus data ini?")) {
-      try {
-        const token = localStorage.getItem("token");
-        await axios.delete(`${API_URL}/api/savings/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        toast.success("Data berhasil dihapus");
-        fetchSavings();
-      } catch {
-        toast.error("Gagal menghapus data");
-      }
-    }
+    showConfirmation(
+      "Konfirmasi Hapus Data",
+      "Apakah Anda yakin ingin menghapus data simpanan ini? Tindakan ini tidak dapat dibatalkan.",
+      async () => {
+        try {
+          const token = localStorage.getItem("token");
+          await axios.delete(`${API_URL}/api/savings/${id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          toast.success("✅ Data berhasil dihapus");
+          // Tunggu sebentar sebelum fetch data untuk memastikan backend sudah update
+          setTimeout(() => {
+            fetchSavings(1, 100); // Refresh data
+          }, 300);
+        } catch (error) {
+          toast.error(
+            `❌ ${error.response?.data?.message || "Gagal menghapus data"}`
+          );
+        }
+      },
+      "danger",
+      "Hapus",
+      "Batal"
+    );
   };
 
   // Handle edit
   const handleEdit = (saving) => {
+    setIsSubmitting(false);
     setEditingId(saving._id);
     setFormData({
       installmentPeriod: saving.installmentPeriod || 1,
@@ -672,7 +801,10 @@ const Savings = () => {
           🌸 Data Simpanan
         </h1>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            setIsSubmitting(false);
+            setShowModal(true);
+          }}
           className="bg-gradient-to-r from-pink-500 to-rose-500 text-white px-4 py-2 sm:px-6 sm:py-3 rounded-lg hover:from-pink-600 hover:to-rose-600 transition-all duration-200 font-medium text-sm sm:text-base shadow-lg hover:shadow-xl"
         >
           ➕ Tambah Simpanan
@@ -1541,6 +1673,20 @@ const Savings = () => {
           </div>
         </div>
       )}
+      
+      {/* Confirmation Dialog */}
+     <ConfirmDialog
+  isOpen={showConfirmDialog}
+  onClose={() => setShowConfirmDialog(false)}
+  onConfirm={confirmDialogConfig.onConfirm}
+  title={confirmDialogConfig.title}
+  message={confirmDialogConfig.message}
+  confirmText={confirmDialogConfig.confirmText}
+  cancelText={confirmDialogConfig.cancelText}
+  type={confirmDialogConfig.type}
+  isLoading={isSubmitting}  // ini tambahan penting
+/>
+
     </div>
   );
 };
