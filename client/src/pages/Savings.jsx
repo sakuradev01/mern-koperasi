@@ -21,6 +21,7 @@ const Savings = () => {
     savingsDate: format(new Date(), "yyyy-MM-dd"),
     type: "Setoran",
     description: "Simpanan bulanan periode 1",
+    status: "Pending",
     proofFile: null,
   });
 
@@ -530,6 +531,7 @@ const Savings = () => {
       savingsDate: format(new Date(), "yyyy-MM-dd"),
       type: "Setoran",
       description: "Simpanan bulanan periode 1", // Will auto-update based on period
+      status: "Pending",
       proofFile: null,
     });
     setLastPeriod(0);
@@ -662,6 +664,7 @@ const Savings = () => {
       savingsDate: format(new Date(saving.savingsDate), "yyyy-MM-dd"),
       type: saving.type || "Setoran",
       description: saving.description || "",
+      status: saving.status || "Pending",
       proofFile: null,
     });
     setOriginalSelection({
