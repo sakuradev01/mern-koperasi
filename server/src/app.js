@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import bodyParser from "body-parser";
 import fs from "fs";
 import conf from "./conf/conf.js";
+import { ApiError } from "./utils/ApiError.js";
 
 const app = express();
 app.use(bodyParser.json());
@@ -169,6 +170,48 @@ app.get("/uploads/savings/:filename", (req, res) => {
 
 app.get("/", (req, res) => {
   res.send("Welcome to the Express Server!");
+});
+
+// Global error handler to return consistent JSON errors
+// Must be the last middleware
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  console.error("❌ Global error handler:", err?.message || err);
+
+  // Multer file size or upload errors
+  if (err?.name === "MulterError" || err?.code === "LIMIT_FILE_SIZE") {
+    return res.status(400).json({
+      success: false,
+      message:
+        "Upload file gagal. Pastikan file tidak lebih dari 5MB dan format yang didukung (JPG, PNG, GIF, PDF).",
+      errors: [],
+    });
+  }
+
+  // Known ApiError from controllers
+  if (err instanceof ApiError) {
+    return res.status(err.statusCode || 400).json({
+      success: false,
+      message: err.message || "Terjadi kesalahan",
+      errors: err.errors || [],
+    });
+  }
+
+  // CORS error surfaced from cors middleware
+  if (err?.message && /CORS|Not allowed by CORS/i.test(err.message)) {
+    return res.status(403).json({
+      success: false,
+      message: err.message,
+      errors: [],
+    });
+  }
+
+  // Fallback
+  return res.status(500).json({
+    success: false,
+    message: "Internal Server Error",
+    errors: [],
+  });
 });
 
 export { app };

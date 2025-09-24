@@ -109,20 +109,36 @@ const createSavings = asyncHandler(async (req, res) => {
   let currentProduct = member.productId;
   let expectedAmount = currentProduct.depositAmount;
   let upgradeInfo = null;
+  const term = currentProduct.termDuration || 12;
   
   // Cek apakah ada upgrade aktif untuk member ini
   const activeUpgrade = await ProductUpgrade.findOne({
     memberId: member._id,
     status: "Active"
-  });
+  }).populate([
+    { path: "oldProduct", select: "depositAmount" },
+    { path: "newProduct", select: "depositAmount" }
+  ]);
   
   if (activeUpgrade && installmentPeriod > activeUpgrade.periodWhenUpgraded) {
-    // Jika ada upgrade aktif dan periode ini setelah upgrade, gunakan nominal baru
-    expectedAmount = activeUpgrade.newMonthlyAmount;
+    // Setelah upgrade: gunakan newMonthlyAmount (sudah termasuk kompensasi bulanan)
+    const baseMonthly = activeUpgrade.newMonthlyAmount || 0;
+    expectedAmount = baseMonthly;
+
+    // Jika ini periode terakhir, tambahkan penyesuaian pembulatan agar total = newProduct.depositAmount * term
+    if (installmentPeriod === term) {
+      const monthsBefore = activeUpgrade.periodWhenUpgraded; // periode sebelum upgrade
+      const oldAmount = activeUpgrade.oldProduct?.depositAmount || currentProduct.depositAmount || 0;
+      const targetTotal = (activeUpgrade.newProduct?.depositAmount || currentProduct.depositAmount || 0) * term;
+      const sumBase = (oldAmount * monthsBefore) + (baseMonthly * (term - monthsBefore));
+      const delta = targetTotal - sumBase; // bisa negatif/positif
+      expectedAmount += delta;
+    }
+
     upgradeInfo = {
       isUpgradePeriod: true,
-      oldAmount: currentProduct.depositAmount,
-      newAmount: activeUpgrade.newMonthlyAmount,
+      oldAmount: activeUpgrade.oldProduct?.depositAmount || currentProduct.depositAmount,
+      newAmount: activeUpgrade.newProduct?.depositAmount || currentProduct.depositAmount,
       compensation: activeUpgrade.compensationPerMonth
     };
     console.log(`🚀 Upgrade detected for period ${installmentPeriod}, expected amount: ${expectedAmount}`);
@@ -144,19 +160,26 @@ const createSavings = asyncHandler(async (req, res) => {
     }).format(amount);
   }
 
-  // Check for duplicate installment period for same member and product
-  const existingSavings = await Savings.findOne({
+  // Check existing attempts for this period (allow retry if semua rejected)
+  const attempts = await Savings.find({
     memberId,
-    productId,
     installmentPeriod,
-  });
+    type: "Setoran",
+  }).sort({ attemptNumber: -1, createdAt: -1 });
 
-  if (existingSavings) {
+  const hasActiveAttempt = attempts.some(
+    (attempt) => attempt.status !== "Rejected"
+  );
+
+  if (hasActiveAttempt) {
     throw new ApiError(
       400,
       `Kamu sudah pernah menambahkan data periode ${installmentPeriod} untuk produk ini`
     );
   }
+
+  const retryGroup = `${member._id.toString()}_${currentProduct._id.toString()}_${installmentPeriod}`;
+  const attemptNumber = attempts.length + 1;
 
   // ADDITIONAL VALIDATION: Ensure file is present if this is a NEW deposit (Setoran)
   // For create operation, require file for setoran
@@ -177,23 +200,33 @@ const createSavings = asyncHandler(async (req, res) => {
     description,
     status: status || "Pending", // Tambahkan status field
     proofFile: req.file ? req.file.path : null,
+    retryGroup,
+    attemptNumber,
   });
 
   await savings.save();
   console.log("✅ Savings created successfully");
 
-  // TAMBAHAN: Sync file ke web root setelah upload berhasil
+  // TAMBAHAN: Sync file ke web root setelah upload berhasil (background process)
   if (req.file && req.file.path) {
     try {
       const { exec } = await import('child_process');
-      const { promisify } = await import('util');
-      const execAsync = promisify(exec);
-      
-      // Run sync script untuk copy file ke web root
-      await execAsync('sudo /usr/local/bin/sync-uploads.sh');
-      console.log('✅ Admin upload file synced to web root successfully');
+
+      // Run sync script di background tanpa waiting (sesuai deploy.yml)
+      exec('/usr/local/bin/sync-uploads.sh', (error, stdout, stderr) => {
+        if (error) {
+          console.error('⚠️ Admin file sync failed (non-critical):', error.message);
+          return;
+        }
+        if (stderr) {
+          console.warn('⚠️ Sync script stderr:', stderr);
+        }
+        console.log('✅ Admin file sync completed successfully');
+      });
+
+      console.log('✅ Admin file sync started in background');
     } catch (syncError) {
-      console.error('⚠️ Admin file sync failed (non-critical):', syncError.message);
+      console.error('⚠️ Failed to start file sync (non-critical):', syncError.message);
       // Don't throw error, file upload still successful
     }
   }
@@ -246,17 +279,25 @@ const updateSavings = asyncHandler(async (req, res) => {
     updateData.proofFile = req.file.path;
     console.log("✅ File uploaded successfully:", req.file.path);
     
-    // TAMBAHAN: Sync file ke web root setelah update upload berhasil
+    // TAMBAHAN: Sync file ke web root setelah update upload berhasil (background process)
     try {
       const { exec } = await import('child_process');
-      const { promisify } = await import('util');
-      const execAsync = promisify(exec);
-      
-      // Run sync script untuk copy file ke web root
-      await execAsync('sudo /usr/local/bin/sync-uploads.sh');
-      console.log('✅ Update upload file synced to web root successfully');
+
+      // Run sync script di background tanpa waiting (sesuai deploy.yml)
+      exec('/usr/local/bin/sync-uploads.sh', (error, stdout, stderr) => {
+        if (error) {
+          console.error('⚠️ Update file sync failed (non-critical):', error.message);
+          return;
+        }
+        if (stderr) {
+          console.warn('⚠️ Update sync script stderr:', stderr);
+        }
+        console.log('✅ Update file sync completed successfully');
+      });
+
+      console.log('✅ Update file sync started in background');
     } catch (syncError) {
-      console.error('⚠️ Update file sync failed (non-critical):', syncError.message);
+      console.error('⚠️ Failed to start update file sync (non-critical):', syncError.message);
       // Don't throw error, file upload still successful
     }
   }
@@ -275,43 +316,60 @@ const updateSavings = asyncHandler(async (req, res) => {
     }
   }
 
-  if (updateData.productId) {
-    const product = await Product.findById(updateData.productId);
-    if (!product) {
+  if (updateData.productId || updateData.amount) {
+    // Ambil produk saat ini untuk term duration
+    const member = await Member.findById(existingSavings.memberId).populate("productId");
+    const currentProduct = member?.productId;
+    if (!currentProduct) {
       throw new ApiError(404, "Produk tidak ditemukan");
     }
 
-    // PERBAIKAN: Validasi amount terhadap product dengan mempertimbangkan upgrade
+    // PERBAIKAN: Validasi amount terhadap product dengan mempertimbangkan upgrade + penyesuaian pembulatan di periode terakhir
     if (updateData.amount) {
-      let expectedAmount = product.depositAmount;
+      let expectedAmount = currentProduct.depositAmount;
       let upgradeInfo = null;
-      
-      // Cek apakah ada upgrade aktif untuk member ini
+      const term = currentProduct.termDuration || 12;
+
+      // Cek upgrade aktif (lengkap dengan populate)
       const activeUpgrade = await ProductUpgrade.findOne({
         memberId: existingSavings.memberId,
         status: "Active"
-      });
-      
+      }).populate([
+        { path: "oldProduct", select: "depositAmount" },
+        { path: "newProduct", select: "depositAmount" }
+      ]);
+
       if (activeUpgrade && existingSavings.installmentPeriod > activeUpgrade.periodWhenUpgraded) {
-        // Jika ada upgrade aktif dan periode ini setelah upgrade, gunakan nominal baru
-        expectedAmount = activeUpgrade.newMonthlyAmount;
+        const baseMonthly = activeUpgrade.newMonthlyAmount || 0; // sudah termasuk kompensasi
+        expectedAmount = baseMonthly;
+
+        // Jika ini periode terakhir, tambahkan penyesuaian pembulatan agar total genap
+        if (existingSavings.installmentPeriod === term) {
+          const monthsBefore = activeUpgrade.periodWhenUpgraded; // periode sebelum upgrade
+          const oldAmount = activeUpgrade.oldProduct?.depositAmount || currentProduct.depositAmount || 0;
+          const targetTotal = (activeUpgrade.newProduct?.depositAmount || currentProduct.depositAmount || 0) * term;
+          const sumBase = (oldAmount * monthsBefore) + (baseMonthly * (term - monthsBefore));
+          const delta = targetTotal - sumBase;
+          expectedAmount += delta;
+        }
+
         upgradeInfo = {
           isUpgradePeriod: true,
-          oldAmount: product.depositAmount,
-          newAmount: activeUpgrade.newMonthlyAmount,
+          oldAmount: activeUpgrade.oldProduct?.depositAmount || currentProduct.depositAmount,
+          newAmount: activeUpgrade.newProduct?.depositAmount || currentProduct.depositAmount,
           compensation: activeUpgrade.compensationPerMonth
         };
         console.log(`🚀 Update: Upgrade detected for period ${existingSavings.installmentPeriod}, expected amount: ${expectedAmount}`);
       }
-      
+
       if (updateData.amount < expectedAmount) {
         const errorMessage = upgradeInfo 
-          ? `Jumlah simpanan minimal ${formatCurrencyUpdate(expectedAmount)} (termasuk kompensasi upgrade ${formatCurrencyUpdate(upgradeInfo.compensation)})`
+          ? `Jumlah simpanan minimal ${formatCurrencyUpdate(expectedAmount)}${upgradeInfo.compensation ? ` (termasuk kompensasi upgrade ${formatCurrencyUpdate(upgradeInfo.compensation)})` : ''}`
           : `Jumlah simpanan minimal ${formatCurrencyUpdate(expectedAmount)}`;
         throw new ApiError(400, errorMessage);
       }
     }
-    
+
     // Helper function untuk format currency di error message update
     function formatCurrencyUpdate(amount) {
       return new Intl.NumberFormat("id-ID", {
@@ -499,17 +557,37 @@ const getLastInstallmentPeriod = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Member ID dan Product ID wajib diisi");
   }
 
-  // PERBAIKAN: Cari periode terakhir untuk member (semua produk) karena setelah upgrade productId berubah
-  const lastSavings = await Savings.findOne({
+  // Ambil semua attempt untuk menentukan periode berikutnya dan dukung retry
+  const allAttempts = await Savings.find({
     memberId,
-    // HAPUS filter productId agar bisa ambil dari produk lama juga
-    type: "Setoran"
+    type: "Setoran",
   })
-    .sort({ installmentPeriod: -1 })
-    .select("installmentPeriod");
+    .sort({ installmentPeriod: -1, attemptNumber: -1, createdAt: -1 })
+    .select("installmentPeriod status attemptNumber retryGroup");
 
-  const lastPeriod = lastSavings ? lastSavings.installmentPeriod : 0;
-  const nextPeriod = lastPeriod + 1;
+  const lastNonRejected = allAttempts.find(
+    (attempt) => attempt.status !== "Rejected"
+  );
+  const lastPeriod = lastNonRejected ? lastNonRejected.installmentPeriod : 0;
+  let nextPeriod = lastPeriod + 1;
+
+  const latestAttempt = allAttempts[0];
+  let isRetry = false;
+  let retryAttemptNumber = null;
+  if (
+    latestAttempt &&
+    latestAttempt.status === "Rejected" &&
+    !allAttempts.some(
+      (attempt) =>
+        attempt.installmentPeriod === latestAttempt.installmentPeriod &&
+        attempt.status !== "Rejected"
+    )
+  ) {
+    // Tidak ada attempt aktif untuk periode tertinggi ⇒ izinkan retry
+    nextPeriod = latestAttempt.installmentPeriod;
+    isRetry = true;
+    retryAttemptNumber = latestAttempt.attemptNumber || 1;
+  }
 
   // TAMBAHAN: Cek apakah ada upgrade aktif untuk menentukan expected amount
   let expectedAmount = null;
@@ -524,17 +602,41 @@ const getLastInstallmentPeriod = asyncHandler(async (req, res) => {
       const activeUpgrade = await ProductUpgrade.findOne({
         memberId: member._id,
         status: "Active"
-      });
-      
+      }).populate([
+        { path: "oldProduct", select: "depositAmount" },
+        { path: "newProduct", select: "depositAmount" }
+      ]);
+
       if (activeUpgrade && nextPeriod > activeUpgrade.periodWhenUpgraded) {
-        expectedAmount = activeUpgrade.newMonthlyAmount;
-        upgradeInfo = {
-          isUpgradePeriod: true,
-          oldAmount: member.productId.depositAmount,
-          newAmount: activeUpgrade.newMonthlyAmount,
-          compensation: activeUpgrade.compensationPerMonth,
-          upgradeFromPeriod: activeUpgrade.periodWhenUpgraded + 1
-        };
+        const term = member.productId.termDuration || 12;
+        const baseMonthly = activeUpgrade.newMonthlyAmount || 0; // sudah termasuk kompensasi
+        expectedAmount = baseMonthly;
+
+        // Jika ini periode terakhir, tambahkan penyesuaian pembulatan agar total genap
+        if (nextPeriod === term) {
+          const monthsBefore = activeUpgrade.periodWhenUpgraded; // periode sudah lewat sebelum upgrade
+          const oldAmount = activeUpgrade.oldProduct?.depositAmount || member.productId.depositAmount || 0;
+          const targetTotal = (activeUpgrade.newProduct?.depositAmount || member.productId.depositAmount || 0) * term;
+          const sumBase = (oldAmount * monthsBefore) + (baseMonthly * (term - monthsBefore));
+          const delta = targetTotal - sumBase; // bisa negatif/positif
+          expectedAmount += delta;
+          upgradeInfo = {
+            isUpgradePeriod: true,
+            oldAmount: oldAmount,
+            newAmount: activeUpgrade.newProduct?.depositAmount || member.productId.depositAmount,
+            compensation: activeUpgrade.compensationPerMonth,
+            upgradeFromPeriod: activeUpgrade.periodWhenUpgraded + 1,
+            roundingAdjustment: delta
+          };
+        } else {
+          upgradeInfo = {
+            isUpgradePeriod: true,
+            oldAmount: activeUpgrade.oldProduct?.depositAmount || member.productId.depositAmount,
+            newAmount: activeUpgrade.newProduct?.depositAmount || member.productId.depositAmount,
+            compensation: activeUpgrade.compensationPerMonth,
+            upgradeFromPeriod: activeUpgrade.periodWhenUpgraded + 1
+          };
+        }
       }
     }
   } catch (error) {
@@ -548,7 +650,9 @@ const getLastInstallmentPeriod = asyncHandler(async (req, res) => {
       lastPeriod,
       nextPeriod,
       expectedAmount,
-      upgradeInfo
+      upgradeInfo,
+      isRetry,
+      retryAttemptNumber,
     })
   );
 });
@@ -603,11 +707,24 @@ const getStudentDashboardSavings = asyncHandler(async (req, res) => {
 
   // Hapus duplikat berdasarkan installmentPeriod
   const uniqueSavings = allFoundSavings.reduce((acc, current) => {
-    const existing = acc.find(
+    const existingIndex = acc.findIndex(
       (item) => item.installmentPeriod === current.installmentPeriod
     );
-    if (!existing) {
+
+    if (existingIndex === -1) {
       acc.push(current);
+    } else {
+      const existing = acc[existingIndex];
+      const existingAttempt = existing.attemptNumber || 1;
+      const currentAttempt = current.attemptNumber || 1;
+
+      if (
+        currentAttempt > existingAttempt ||
+        (currentAttempt === existingAttempt && current.updatedAt > existing.updatedAt) ||
+        (existing.status === "Rejected" && current.status !== "Rejected")
+      ) {
+        acc[existingIndex] = current;
+      }
     }
     return acc;
   }, []);
@@ -623,7 +740,8 @@ const getStudentDashboardSavings = asyncHandler(async (req, res) => {
   const realizationStatusMap = {};
 
   depositHistory.forEach((deposit) => {
-    realizationAmountMap[deposit.installmentPeriod] = deposit.amount;
+    realizationAmountMap[deposit.installmentPeriod] =
+      deposit.status === "Approved" ? deposit.amount : 0;
     realizationProofFileMap[deposit.installmentPeriod] = deposit.proofFile || 0;
     realizationStatusMap[deposit.installmentPeriod] = deposit.status || "Pending";
     console.log(`Period ${deposit.installmentPeriod}: ${deposit.amount} - Status: ${deposit.status}`); // Debug
@@ -668,10 +786,10 @@ const getStudentDashboardSavings = asyncHandler(async (req, res) => {
 
     // PERBAIKAN: Tentukan proyeksi berdasarkan upgrade status
     let projectionAmount = product.depositAmount; // Default: nominal saat ini
-    
+
     if (activeUpgrade && i >= upgradeStartPeriod) {
-      // Periode setelah upgrade: gunakan nominal baru + kompensasi
-      projectionAmount = activeUpgrade.newMonthlyAmount;
+      // Periode setelah upgrade: gunakan newMonthlyAmount (sudah termasuk kompensasi)
+      projectionAmount = activeUpgrade.newMonthlyAmount || 0;
     } else if (activeUpgrade && activeUpgrade.oldProduct) {
       // Periode sebelum upgrade: gunakan nominal asli dari oldProduct
       projectionAmount = activeUpgrade.oldProduct.depositAmount;
@@ -687,6 +805,27 @@ const getStudentDashboardSavings = asyncHandler(async (req, res) => {
       payment_proof: realizationProofFileMap[i] || 0,
       status: realizationStatusMap[i] || "Not Submitted",
     });
+  }
+
+  // PENYESUAIAN PEMBULATAN: genapkan total agar sesuai target x durasi
+  try {
+    const term = product.termDuration;
+    // Target total tetap berdasarkan deposit produk baru (tanpa kompensasi)
+    let targetTotal = (activeUpgrade && activeUpgrade.newProduct)
+      ? (activeUpgrade.newProduct.depositAmount || 0) * term
+      : (product.depositAmount || 0) * term;
+
+    const currentSum = delivered.reduce((sum, p) => sum + (parseInt(p.projection) || 0), 0);
+    const delta = targetTotal - currentSum;
+    if (delta !== 0 && delivered.length > 0) {
+      const lastIdx = delivered.length - 1;
+      const lastVal = parseInt(delivered[lastIdx].projection) || 0;
+      delivered[lastIdx].projection = (lastVal + delta).toString();
+      delivered[lastIdx].rounding_adjustment = delta;
+      console.log("Applied rounding adjustment on dashboard projection:", delta);
+    }
+  } catch (e) {
+    console.warn("Rounding adjustment failed on dashboard:", e?.message);
   }
 
   res.status(200).json(delivered);
@@ -708,39 +847,66 @@ const getSavingsByMemberUuid = asyncHandler(async (req, res) => {
 
   // LANGSUNG QUERY SEMUA SAVINGS untuk member ini
   // Method 1: Cari berdasarkan member._id
-  let allSavings = await Savings.find({ memberId: member._id })
+  const rawSavings = await Savings.find({ memberId: member._id })
     .populate("memberId", "name email phone uuid")
     .populate("productId", "title depositAmount returnProfit termDuration")
-    .sort({ installmentPeriod: 1 });
+    .sort({ installmentPeriod: 1, attemptNumber: 1, createdAt: 1 });
 
-  console.log(`Method 1 (by member._id): Found ${allSavings.length} savings`); // Debug
+  const groupedByPeriod = new Map();
+  const historyByPeriod = new Map();
 
-  // Method 2: Jika tidak ada, cari dengan populate dan filter UUID
-  if (allSavings.length === 0) {
-    const allSavingsInDB = await Savings.find({})
-      .populate("memberId", "name email phone uuid")
-      .populate("productId", "title depositAmount returnProfit termDuration")
-      .sort({ installmentPeriod: 1 });
+  rawSavings.forEach((saving) => {
+    const period = saving.installmentPeriod;
+    const currentBest = groupedByPeriod.get(period);
 
-    allSavings = allSavingsInDB.filter(
-      (saving) => saving.memberId && saving.memberId.uuid === uuid
-    );
+    if (!historyByPeriod.has(period)) {
+      historyByPeriod.set(period, []);
+    }
+    historyByPeriod.get(period).push(saving);
 
-    console.log(
-      `Method 2 (by UUID filter): Found ${allSavings.length} savings`
-    ); // Debug
-  }
+    if (!currentBest) {
+      groupedByPeriod.set(period, saving);
+    } else {
+      const currentAttempt = currentBest.attemptNumber || 1;
+      const candidateAttempt = saving.attemptNumber || 1;
 
-  // Debug: Print semua savings yang ditemukan
-  allSavings.forEach((saving) => {
-    console.log(
-      `Period ${saving.installmentPeriod}: ${saving.amount} - ${saving.status} - ${saving.type}`
-    );
+      if (
+        candidateAttempt > currentAttempt ||
+        (candidateAttempt === currentAttempt && saving.updatedAt > currentBest.updatedAt)
+      ) {
+        groupedByPeriod.set(period, saving);
+      }
+    }
   });
+
+  const normalizedSavings = Array.from(groupedByPeriod.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([period, saving]) => {
+      const historyList = historyByPeriod.get(period) || [];
+      const attemptHistory = historyList
+        .sort((a, b) => (a.attemptNumber || 1) - (b.attemptNumber || 1))
+        .map((attempt) => ({
+          attemptNumber: attempt.attemptNumber || 1,
+          status: attempt.status,
+          amount: attempt.amount,
+          description: attempt.description,
+          proofFile: attempt.proofFile || null,
+          createdAt: attempt.createdAt,
+          updatedAt: attempt.updatedAt,
+          _id: attempt._id,
+        }));
+
+      const savingObj = saving.toObject();
+      savingObj.attemptHistory = attemptHistory;
+      savingObj.attemptNumber = attemptHistory.length
+        ? attemptHistory[attemptHistory.length - 1].attemptNumber
+        : saving.attemptNumber || 1;
+      return savingObj;
+    });
 
   res.status(200).json(
     new ApiResponse(200, {
-      savings: allSavings,
+      savings: normalizedSavings,
       member: {
         uuid: member.uuid,
         name: member.name,

@@ -1,17 +1,19 @@
-import { useState } from 'react';
-
-const ConfirmDialog = ({ isOpen, onClose, onConfirm, title, message, confirmText = "Hapus", cancelText = "Batal", type = "danger" }) => {
-  const [isLoading, setIsLoading] = useState(false);
-
+const ConfirmDialog = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  message,
+  confirmText = "Hapus",
+  cancelText = "Batal",
+  type = "danger",
+  isLoading = false, // dikontrol dari parent
+}) => {
   const handleConfirm = async () => {
-    setIsLoading(true);
     try {
-      await onConfirm();
-      onClose();
-    } catch (error) {
-      console.error('Error:', error);
+      await onConfirm(); // biarkan parent yang atur loading
     } finally {
-      setIsLoading(false);
+      onClose();
     }
   };
 
@@ -35,7 +37,7 @@ const ConfirmDialog = ({ isOpen, onClose, onConfirm, title, message, confirmText
       iconBg: "bg-blue-100",
       iconColor: "text-blue-600",
       confirmBtn: "bg-blue-600 hover:bg-blue-700 focus:ring-blue-500",
-    }
+    },
   };
 
   const currentStyle = typeStyles[type] || typeStyles.danger;
@@ -44,17 +46,24 @@ const ConfirmDialog = ({ isOpen, onClose, onConfirm, title, message, confirmText
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         {/* Background overlay */}
-        <div 
+        <div
           className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
           onClick={onClose}
         ></div>
 
         {/* Center modal */}
-        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <span
+          className="hidden sm:inline-block sm:align-middle sm:h-screen"
+          aria-hidden="true"
+        >
+          &#8203;
+        </span>
 
         <div className="inline-block align-bottom bg-white rounded-2xl px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
           <div className="sm:flex sm:items-start">
-            <div className={`mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full ${currentStyle.iconBg} sm:mx-0 sm:h-10 sm:w-10`}>
+            <div
+              className={`mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full ${currentStyle.iconBg} sm:mx-0 sm:h-10 sm:w-10`}
+            >
               <span className={`text-xl ${currentStyle.iconColor}`}>
                 {currentStyle.icon}
               </span>
@@ -64,9 +73,7 @@ const ConfirmDialog = ({ isOpen, onClose, onConfirm, title, message, confirmText
                 {title}
               </h3>
               <div className="mt-2">
-                <p className="text-sm text-gray-500">
-                  {message}
-                </p>
+                <p className="text-sm text-gray-500">{message}</p>
               </div>
             </div>
           </div>
@@ -80,7 +87,11 @@ const ConfirmDialog = ({ isOpen, onClose, onConfirm, title, message, confirmText
               {isLoading ? (
                 <div className="flex items-center">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Menghapus...
+                  {type === "danger"
+                    ? "Menghapus..."
+                    : type === "warning"
+                    ? "Memproses..."
+                    : "Menyimpan..."}
                 </div>
               ) : (
                 confirmText

@@ -7,6 +7,8 @@ import { Provider, useDispatch } from "react-redux";
 import store from "./store/store.js";
 import { login } from "./store/authSlice";
 import { getStoredUser, isAuthenticated } from "./api/authApi";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 function App() {
   const dispatch = useDispatch();
@@ -25,7 +27,10 @@ function App() {
     <Provider store={store}>
       {/* PersistGate will delay the rendering until the redux state is rehydrated */}
       <PersistGate loading={null} persistor={persistor}>
-        <RouterProvider router={router} />
+        <>
+          <RouterProvider router={router} />
+          <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
+        </>
       </PersistGate>
     </Provider>
   );

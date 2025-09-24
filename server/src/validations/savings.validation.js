@@ -110,6 +110,9 @@ const querySavingsSchema = Joi.object({
     "string.hex": "ID anggota harus berupa hex string",
     "string.length": "ID anggota harus 24 karakter",
   }),
-});
+  // Allow additional parameters for cache-busting and other purposes
+  t: Joi.any().optional(),
+  _: Joi.any().optional(),
+}).unknown(true);
 
 export { createSavingsSchema, updateSavingsSchema, querySavingsSchema };

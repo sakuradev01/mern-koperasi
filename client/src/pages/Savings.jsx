@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { toast } from "react-toastify";
 import { API_URL } from "../api/config";
+import ConfirmDialog from "../components/common/ConfirmDialog";
 
 const Savings = () => {
   const [savings, setSavings] = useState([]);
@@ -20,6 +21,7 @@ const Savings = () => {
     savingsDate: format(new Date(), "yyyy-MM-dd"),
     type: "Setoran",
     description: "Simpanan bulanan periode 1",
+    status: "Pending",
     proofFile: null,
   });
 
@@ -32,24 +34,60 @@ const Savings = () => {
   // Filter dan pagination states
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [dateFilter, setDateFilter] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [showProofModal, setShowProofModal] = useState(false);
   const [selectedProof, setSelectedProof] = useState(null);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectTarget, setRejectTarget] = useState(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectSubmitting, setRejectSubmitting] = useState(false);
+  const [retryInfo, setRetryInfo] = useState(null);
+  const retryToastRef = useRef({ period: null, attempts: 0 });
+  
+  // Confirmation dialog states
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [confirmDialogConfig, setConfirmDialogConfig] = useState({
+    title: "",
+    message: "",
+    confirmText: "Ya",
+    cancelText: "Batal",
+    type: "info",
+    onConfirm: () => {},
+  });
   
   // Validation states
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Function to show confirmation dialog
+  const showConfirmation = (title, message, onConfirm, type = "info", confirmText = "Ya", cancelText = "Batal") => {
+    setConfirmDialogConfig({
+      title,
+      message,
+      confirmText,
+      cancelText,
+      type,
+      onConfirm,
+    });
+    setShowConfirmDialog(true);
+  };
+
   // Fetch data
   const fetchSavings = async (page = 1, limit = 100) => {
     try {
       const token = localStorage.getItem("token");
+
       const response = await axios.get(
         `${API_URL}/api/savings?page=${page}&limit=${limit}`,
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          },
         }
       );
       const data =
@@ -101,6 +139,38 @@ const Savings = () => {
     };
     loadData();
   }, []);
+
+  // Cleanup function to reset isSubmitting when component unmounts or modal closes
+  useEffect(() => {
+    return () => {
+      if (isSubmitting) {
+        setIsSubmitting(false);
+      }
+    };
+  }, [isSubmitting]);
+
+  // Reset isSubmitting when modal is closed
+  useEffect(() => {
+    if (!showModal && isSubmitting) {
+      setIsSubmitting(false);
+    }
+  }, [showModal, isSubmitting]);
+
+  // Fallback: Reset isSubmitting after 30 seconds as a safety net
+  useEffect(() => {
+    let timeout;
+    if (isSubmitting) {
+      timeout = setTimeout(() => {
+        console.warn("⚠️ Force resetting isSubmitting after 30 seconds timeout");
+        setIsSubmitting(false);
+      }, 30000);
+    }
+    return () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    };
+  }, [isSubmitting]);
 
   // Auto-fill product when member is selected
   useEffect(() => {
@@ -169,27 +239,85 @@ const Savings = () => {
   // Check for duplicate period in real-time
   useEffect(() => {
     if (formData.memberId && formData.productId && formData.installmentPeriod) {
-      const existingSaving = savings.find(
-        (saving) =>
-          saving.memberId?._id === formData.memberId &&
-          saving.productId?._id === formData.productId &&
-          saving.installmentPeriod === formData.installmentPeriod &&
-          (!editingId || saving._id !== editingId) // Exclude current editing item
+      const matchingAttempts = savings.filter((saving) =>
+        (saving.memberId?._id === formData.memberId || saving.memberId === formData.memberId) &&
+        (saving.productId?._id === formData.productId || saving.productId === formData.productId) &&
+        saving.installmentPeriod === formData.installmentPeriod &&
+        (!editingId || saving._id !== editingId)
       );
-      
-      if (existingSaving) {
-        setErrors(prev => ({
+
+      const blockingAttempt = matchingAttempts.find((attempt) => attempt.status !== "Rejected");
+      const rejectedAttempts = matchingAttempts.filter((attempt) => attempt.status === "Rejected");
+
+      if (blockingAttempt) {
+        setErrors((prev) => ({
           ...prev,
-          installmentPeriod: `Periode ${formData.installmentPeriod} sudah pernah ditambahkan untuk member dan produk ini`
+          installmentPeriod: 'Periode ' + formData.installmentPeriod + ' sudah pernah ditambahkan untuk member dan produk ini',
         }));
-      } else if (errors.installmentPeriod && errors.installmentPeriod.includes("sudah pernah")) {
-        setErrors(prev => ({
+        setRetryInfo(null);
+        retryToastRef.current = { period: null, attempts: 0 };
+      } else if (errors.installmentPeriod && errors.installmentPeriod.includes('sudah pernah')) {
+        setErrors((prev) => ({
           ...prev,
-          installmentPeriod: ""
+          installmentPeriod: '',
         }));
       }
+
+      if (!blockingAttempt && rejectedAttempts.length > 0) {
+        if (
+          retryToastRef.current.period !== formData.installmentPeriod ||
+          retryToastRef.current.attempts !== rejectedAttempts.length
+        ) {
+          toast.info(
+            rejectedAttempts.length === 1
+              ? 'Periode ' + formData.installmentPeriod + ' sudah pernah ditolak 1 kali. Silakan unggah bukti terbaru.'
+              : 'Periode ' + formData.installmentPeriod + ' sudah pernah ditolak ' + rejectedAttempts.length + ' kali. Silakan unggah bukti terbaru.'
+          );
+          retryToastRef.current = {
+            period: formData.installmentPeriod,
+            attempts: rejectedAttempts.length,
+          };
+        }
+
+        setRetryInfo((prev) => {
+          if (
+            prev &&
+            prev.isRetry &&
+            prev.period === formData.installmentPeriod &&
+            prev.previousAttempts === rejectedAttempts.length
+          ) {
+            return prev;
+          }
+          return {
+            isRetry: true,
+            period: formData.installmentPeriod,
+            previousAttempts: rejectedAttempts.length,
+            nextAttempt: rejectedAttempts.length + 1,
+          };
+        });
+      } else {
+        if (retryToastRef.current.period === formData.installmentPeriod) {
+          retryToastRef.current = { period: null, attempts: 0 };
+        }
+        if (
+          retryInfo &&
+          retryInfo.isRetry &&
+          retryInfo.period === formData.installmentPeriod &&
+          rejectedAttempts.length === 0
+        ) {
+          setRetryInfo(null);
+        }
+      }
     }
-  }, [formData.memberId, formData.productId, formData.installmentPeriod, savings, editingId, errors.installmentPeriod]);
+  }, [
+    formData.memberId,
+    formData.productId,
+    formData.installmentPeriod,
+    savings,
+    editingId,
+    errors.installmentPeriod,
+    retryInfo,
+  ]);
 
   // Format currency
   const formatCurrency = (amount) => {
@@ -213,7 +341,8 @@ const Savings = () => {
       const next = data.nextPeriod ?? ((last || 0) + 1);
       const expectedAmount = data.expectedAmount;
       const upgradeInfo = data.upgradeInfo;
-      
+      const isRetry = data.isRetry;
+      const previousAttempts = data.retryAttemptNumber || 0;
       setLastPeriod(last);
       
       const selectionChanged =
@@ -231,18 +360,36 @@ const Savings = () => {
         
         // Update description berdasarkan upgrade status
         if (upgradeInfo && upgradeInfo.isUpgradePeriod) {
-          updateData.description = `Simpanan periode ${next} - Upgrade (${formatCurrency(upgradeInfo.oldAmount)} → ${formatCurrency(upgradeInfo.newAmount)} + kompensasi ${formatCurrency(upgradeInfo.compensation)})`;
+          const baseDesc = `Simpanan periode ${next} - Upgrade (${formatCurrency(upgradeInfo.oldAmount)} → ${formatCurrency(upgradeInfo.newAmount)} + kompensasi ${formatCurrency(upgradeInfo.compensation)})`;
+          if (typeof upgradeInfo.roundingAdjustment === 'number' && upgradeInfo.roundingAdjustment !== 0) {
+            const sign = upgradeInfo.roundingAdjustment > 0 ? '+' : '';
+            updateData.description = `${baseDesc} + penyesuaian pembulatan ${sign}${formatCurrency(upgradeInfo.roundingAdjustment)}`;
+          } else {
+            updateData.description = baseDesc;
+          }
         } else {
           updateData.description = `Simpanan bulanan periode ${next}`;
         }
         
         setFormData((prev) => ({ ...prev, ...updateData }));
-        
+
         // Log untuk debugging
-        console.log(`🔍 Period check - Last: ${last}, Next: ${next}, Expected: ${expectedAmount}`);
+        console.log('🔍 Period check - Last: ' + last + ', Next: ' + next + ', Expected: ' + expectedAmount);
         if (upgradeInfo) {
-          console.log(`🚀 Upgrade detected from period ${upgradeInfo.upgradeFromPeriod}`);
+          console.log('🚀 Upgrade detected from period ' + upgradeInfo.upgradeFromPeriod);
         }
+      }
+
+      if (isRetry) {
+        setRetryInfo({
+          isRetry: true,
+          period: next,
+          previousAttempts,
+          nextAttempt: previousAttempts + 1,
+        });
+      } else {
+        setRetryInfo(null);
+        retryToastRef.current = { period: null, attempts: 0 };
       }
     } catch (error) {
       console.error("Error checking last period:", error);
@@ -253,6 +400,8 @@ const Savings = () => {
       if (!editingId || selectionChanged) {
         setFormData((prev) => ({ ...prev, installmentPeriod: 1 }));
       }
+      setRetryInfo(null);
+      retryToastRef.current = { period: null, attempts: 0 };
     }
   };
 
@@ -320,98 +469,187 @@ const Savings = () => {
       return;
     }
     
-    setIsSubmitting(true);
+    // Show confirmation dialog before submitting
+    const actionType = editingId ? "memperbarui" : "menambahkan";
+    const actionText = editingId ? "Perbarui Data" : "Tambah Data";
+    
+    showConfirmation(
+      `Konfirmasi ${actionType} Simpanan`,
+      `Apakah Anda yakin ingin ${actionType} data simpanan ini?`,
+      async () => {
+        console.log("🚀 Starting submission process...");
+        setIsSubmitting(true);
 
-    const formDataToSend = new FormData();
+        try {
+          const formDataToSend = new FormData();
 
-    // Kirim semua field untuk create dan update
-    Object.keys(formData).forEach((key) => {
-      if (formData[key] !== null && formData[key] !== undefined) {
-        formDataToSend.append(key, formData[key]);
-      }
-    });
+          // Kirim semua field untuk create dan update, tapi JANGAN kirim proofFile jika tidak ada file baru
+          Object.keys(formData).forEach((key) => {
+            const value = formData[key];
+            if (value === null || value === undefined) return;
+            if (key === "proofFile") {
+              // Hanya kirim jika benar-benar file baru (instance File)
+              if (value instanceof File) {
+                formDataToSend.append(key, value);
+              }
+              return;
+            }
+            formDataToSend.append(key, value);
+          });
 
-    try {
-      const token = localStorage.getItem("token");
+          console.log("📋 Form data prepared:", {
+            memberId: formData.memberId,
+            productId: formData.productId,
+            amount: formData.amount,
+            type: formData.type,
+            hasFile: !!formData.proofFile
+          });
 
-      if (editingId) {
-        // Update existing savings
-        await axios.put(`${API_URL}/api/savings/${editingId}`, formDataToSend, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        });
-        toast.success("Data simpanan berhasil diperbarui");
-      } else {
-        // Create new savings
-        await axios.post(`${API_URL}/api/savings`, formDataToSend, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        });
-        toast.success("Data simpanan berhasil ditambahkan");
-      }
+          const token = localStorage.getItem("token");
+          console.log("🔑 Token retrieved:", token ? "Token exists" : "No token");
 
-      setShowModal(false);
-      setEditingId(null);
-      resetForm();
-      fetchSavings();
-    } catch (error) {
-      console.error("❌ Error saving savings:", error);
-      console.error("❌ Error response:", error.response?.data);
+          if (editingId) {
+            console.log("✏️ Updating existing savings...");
+            // Update existing savings
+            await axios.put(`${API_URL}/api/savings/${editingId}`, formDataToSend, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "multipart/form-data",
+              },
+              timeout: 30000, // 30 seconds timeout
+            });
+            toast.success("✅ Data simpanan berhasil diperbarui");
+          } else {
+            console.log("➕ Creating new savings...");
+            // Create new savings
+            await axios.post(`${API_URL}/api/savings`, formDataToSend, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "multipart/form-data",
+              },
+              timeout: 30000, // 30 seconds timeout
+            });
+            toast.success("✅ Data simpanan berhasil ditambahkan");
+          }
 
-      // Extract specific validation errors from backend
-      const errorMessage = error.response?.data?.message || "Gagal menyimpan data";
-      
-      // Handle specific backend validation errors
-      const newErrors = {};
-      if (errorMessage.includes("periode") && errorMessage.includes("sudah pernah")) {
-        newErrors.installmentPeriod = "Periode ini sudah pernah ditambahkan untuk member dan produk ini";
-      }
-      
-      if (errorMessage.includes("minimal")) {
-        newErrors.amount = errorMessage;
-      }
-      
-      if (errorMessage.includes("bukti") || errorMessage.includes("upload") || errorMessage.includes("file")) {
-        newErrors.proofFile = errorMessage;
-      }
-      
-      if (errorMessage.includes("keterangan") || errorMessage.includes("description")) {
-        newErrors.description = errorMessage;
-      }
-      
-      if (errorMessage.includes("anggota") || errorMessage.includes("member")) {
-        newErrors.memberId = errorMessage;
-      }
-      
-      if (errorMessage.includes("produk") || errorMessage.includes("product")) {
-        newErrors.productId = errorMessage;
-      }
-      
-      if (errorMessage.includes("tanggal") || errorMessage.includes("date")) {
-        newErrors.savingsDate = errorMessage;
-      }
-      
-      if (Object.keys(newErrors).length > 0) {
-        setErrors(newErrors);
-      }
+          console.log("✅ Submission successful, scheduling modal close...");
+          // Tunggu sebentar sebelum menutup modal dan reset form
+          setTimeout(() => {
+            setShowModal(false);
+            setEditingId(null);
+            resetForm();
+            fetchSavings(1, 100); // Refresh data
+          }, 500);
+        } catch (error) {
+          console.error("❌ Error in submission process:", error);
+          console.error("❌ Error response:", error.response?.data);
+          console.error("❌ Error status:", error.response?.status);
+          console.error("❌ Error config:", error.config);
+          console.error("❌ Error code:", error.code);
+          console.error("❌ Error message:", error.message);
 
-      // Show detailed validation errors if available
-      if (error.response?.status === 400) {
-        toast.error(`❌ ${errorMessage}`);
-      } else if (error.response?.status === 404) {
-        toast.error(`❌ Data Tidak Ditemukan: ${errorMessage}`);
-      } else if (error.response?.status === 500) {
-        toast.error(`❌ Server Error: ${errorMessage}. Silakan coba lagi.`);
-      } else {
-        toast.error(`❌ Error: ${errorMessage}`);
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
+          // Handle different types of errors
+          let errorMessage = "Gagal menyimpan data";
+
+          if (error.code === 'ECONNABORTED') {
+            errorMessage = "Request timeout. Server tidak meresponse dalam 30 detik.";
+          } else if (error.response?.data?.message) {
+            errorMessage = error.response.data.message;
+          } else if (error.response?.data?.error) {
+            // Some endpoints may respond with { error: "..." }
+            errorMessage = error.response.data.error;
+          } else if (error.message) {
+            errorMessage = error.message;
+          }
+
+          // If response data is a string (e.g., HTML from Express default handler), try to extract meaningful message
+          if (/^Request failed with status code/i.test(errorMessage)) {
+            const raw = error.response?.data;
+            if (typeof raw === 'string') {
+              try {
+                // Try parse JSON string first
+                const maybeJson = JSON.parse(raw);
+                if (maybeJson?.message) errorMessage = maybeJson.message;
+              } catch (_) {
+                // Strip HTML tags and take first 200 chars as fallback
+                const text = raw.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+                if (text) errorMessage = text.slice(0, 200);
+              }
+            }
+          }
+
+          // Handle specific backend validation errors
+          const newErrors = {};
+          // Coba petakan array errors jika tersedia (Joi atau validasi lain)
+          const serverErrors = error.response?.data?.errors;
+          if (Array.isArray(serverErrors) && serverErrors.length > 0) {
+            serverErrors.forEach((errItem) => {
+              const msg = errItem?.message || errItem;
+              const path = Array.isArray(errItem?.path) ? errItem.path[0] : errItem?.path;
+              if (path === "amount" || /jumlah/i.test(msg)) newErrors.amount = msg;
+              if (path === "memberId" || /anggota|member/i.test(msg)) newErrors.memberId = msg;
+              if (path === "productId" || /produk|product/i.test(msg)) newErrors.productId = msg;
+              if (path === "savingsDate" || /tanggal|date/i.test(msg)) newErrors.savingsDate = msg;
+              if (path === "description" || /keterangan|description/i.test(msg)) newErrors.description = msg;
+              if (path === "status" || /status/i.test(msg)) newErrors.status = msg;
+              if (/bukti|upload|file/i.test(msg)) newErrors.proofFile = msg;
+            });
+          }
+          if (errorMessage.match(/periode/i) && errorMessage.match(/sudah pernah|duplikat|sudah ada/i)) {
+            newErrors.installmentPeriod = "Periode ini sudah pernah ditambahkan untuk member dan produk ini";
+          }
+
+          if (errorMessage.match(/minimal|lebih dari|positif/i)) {
+            newErrors.amount = errorMessage;
+          }
+
+          if (errorMessage.match(/periode|minimal 1/i)) {
+            newErrors.installmentPeriod = errorMessage;
+          }
+
+          if (errorMessage.includes("bukti") || errorMessage.includes("upload") || errorMessage.includes("file")) {
+            newErrors.proofFile = errorMessage;
+          }
+          if (errorMessage.match(/5mb|ukuran|size/i)) {
+            newErrors.proofFile = errorMessage;
+          }
+
+          if (errorMessage.includes("keterangan") || errorMessage.includes("description")) {
+            newErrors.description = errorMessage;
+          }
+
+          if (errorMessage.includes("anggota") || errorMessage.includes("member")) {
+            newErrors.memberId = errorMessage;
+          }
+
+          if (errorMessage.includes("produk") || errorMessage.includes("product")) {
+            newErrors.productId = errorMessage;
+          }
+
+          if (errorMessage.includes("tanggal") || errorMessage.includes("date")) {
+            newErrors.savingsDate = errorMessage;
+          }
+
+          if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
+          }
+
+          // Show detailed validation errors if available
+          // Selalu tampilkan toast agar user tahu ada kegagalan
+          if (error.response?.status === 500) {
+            toast.error(`❌ Server Error: ${errorMessage}. Silakan coba lagi.`);
+          } else {
+            toast.error(`❌ ${errorMessage}`);
+          }
+        } finally {
+          console.log("🔄 Finally block - resetting isSubmitting");
+          setIsSubmitting(false);
+        }
+      },
+      "info",
+      actionText,
+      "Batal"
+    );
   };
 
   const resetForm = () => {
@@ -423,12 +661,15 @@ const Savings = () => {
       savingsDate: format(new Date(), "yyyy-MM-dd"),
       type: "Setoran",
       description: "Simpanan bulanan periode 1", // Will auto-update based on period
+      status: "Pending",
       proofFile: null,
     });
     setLastPeriod(0);
     setOriginalSelection({ memberId: "", productId: "" });
     setErrors({});
     setIsSubmitting(false);
+    setRetryInfo(null);
+    retryToastRef.current = { period: null, attempts: 0 };
   };
 
   // Handle file upload
@@ -483,46 +724,106 @@ const Savings = () => {
 
   // Handle approve
   const handleApprove = async (id) => {
-    if (window.confirm("Apakah Anda yakin ingin menyetujui simpanan ini?")) {
-      try {
-        const token = localStorage.getItem("token");
-        const formData = new FormData();
-        formData.append("status", "Approved");
+    showConfirmation(
+      "Konfirmasi Persetujuan Simpanan",
+      "Apakah Anda yakin ingin menyetujui simpanan ini?",
+      async () => {
+        try {
+          const token = localStorage.getItem("token");
+          const formData = new FormData();
+          formData.append("status", "Approved");
 
-        await axios.put(`${API_URL}/api/savings/${id}`, formData, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        });
-        toast.success("Simpanan berhasil disetujui");
-        fetchSavings();
-      } catch (error) {
-        toast.error(
-          error.response?.data?.message || "Gagal menyetujui simpanan"
-        );
-      }
+          await axios.put(`${API_URL}/api/savings/${id}`, formData, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "multipart/form-data",
+            },
+          });
+          toast.success("✅ Simpanan berhasil disetujui");
+          // Tunggu sebentar sebelum fetch data untuk memastikan backend sudah update
+          setTimeout(() => {
+            fetchSavings(1, 100); // Refresh data
+          }, 300);
+        } catch (error) {
+          toast.error(
+            `❌ ${error.response?.data?.message || "Gagal menyetujui simpanan"}`
+          );
+        }
+      },
+      "info",
+      "Setujui",
+      "Batal"
+    );
+  };
+
+  // Open Reject Modal with existing description
+  const handleReject = (saving) => {
+    setRejectTarget(saving);
+    setRejectReason(saving?.description || "");
+    setShowRejectModal(true);
+  };
+
+  const submitReject = async () => {
+    if (!rejectTarget?._id) return;
+    try {
+      setRejectSubmitting(true);
+      const token = localStorage.getItem("token");
+      const formData = new FormData();
+      formData.append("status", "Rejected");
+      // Pakai kolom yang sudah ada: description
+      formData.append("description", rejectReason || "");
+
+      await axios.put(`${API_URL}/api/savings/${rejectTarget._id}`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      toast.success("✅ Simpanan berhasil ditolak");
+      setShowRejectModal(false);
+      setRejectTarget(null);
+      setRejectReason("");
+      // Refresh data
+      setTimeout(() => fetchSavings(1, 100), 300);
+    } catch (error) {
+      const message = error.response?.data?.message || error.message || "Gagal menolak simpanan";
+      toast.error(`❌ ${message}`);
+    } finally {
+      setRejectSubmitting(false);
     }
   };
 
   // Handle delete
   const handleDelete = async (id) => {
-    if (window.confirm("Apakah Anda yakin ingin menghapus data ini?")) {
-      try {
-        const token = localStorage.getItem("token");
-        await axios.delete(`${API_URL}/api/savings/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        toast.success("Data berhasil dihapus");
-        fetchSavings();
-      } catch {
-        toast.error("Gagal menghapus data");
-      }
-    }
+    showConfirmation(
+      "Konfirmasi Hapus Data",
+      "Apakah Anda yakin ingin menghapus data simpanan ini? Tindakan ini tidak dapat dibatalkan.",
+      async () => {
+        try {
+          const token = localStorage.getItem("token");
+          await axios.delete(`${API_URL}/api/savings/${id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          toast.success("✅ Data berhasil dihapus");
+          // Tunggu sebentar sebelum fetch data untuk memastikan backend sudah update
+          setTimeout(() => {
+            fetchSavings(1, 100); // Refresh data
+          }, 300);
+        } catch (error) {
+          toast.error(
+            `❌ ${error.response?.data?.message || "Gagal menghapus data"}`
+          );
+        }
+      },
+      "danger",
+      "Hapus",
+      "Batal"
+    );
   };
 
   // Handle edit
   const handleEdit = (saving) => {
+    setIsSubmitting(false);
     setEditingId(saving._id);
     setFormData({
       installmentPeriod: saving.installmentPeriod || 1,
@@ -532,8 +833,10 @@ const Savings = () => {
       savingsDate: format(new Date(saving.savingsDate), "yyyy-MM-dd"),
       type: saving.type || "Setoran",
       description: saving.description || "",
+      status: saving.status || "Pending",
       proofFile: null,
     });
+    setRetryInfo(null);
     setOriginalSelection({
       memberId: saving.memberId?._id || saving.memberId || "",
       productId: saving.productId?._id || saving.productId || "",
@@ -587,9 +890,11 @@ const Savings = () => {
     const memberName = getMemberName(saving.memberId).toLowerCase();
     const matchesSearch = memberName.includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "" || saving.status === statusFilter;
-    const matchesDate =
-      dateFilter === "" ||
-      format(new Date(saving.savingsDate), "yyyy-MM-dd") === dateFilter;
+    
+    const savingDate = new Date(saving.savingsDate);
+    const matchesStartDate = startDate === "" || savingDate >= new Date(startDate);
+    const matchesEndDate = endDate === "" || savingDate <= new Date(endDate + 'T23:59:59');
+    const matchesDate = matchesStartDate && matchesEndDate;
 
     return matchesSearch && matchesStatus && matchesDate;
   });
@@ -610,8 +915,11 @@ const Savings = () => {
       case "status":
         setStatusFilter(value);
         break;
-      case "date":
-        setDateFilter(value);
+      case "startDate":
+        setStartDate(value);
+        break;
+      case "endDate":
+        setEndDate(value);
         break;
       default:
         break;
@@ -622,9 +930,11 @@ const Savings = () => {
   const handleShowProof = (proofFile, saving) => {
     if (proofFile && proofFile !== "0") {
       // Primary: direct /uploads (served by Nginx if configured)
-      const primaryUrl = `${API_URL}/${proofFile}`;
+      const cleanApiUrl = API_URL.replace(/\/$/, ''); // Remove trailing slash
+      const cleanProofFile = proofFile.replace(/^\//, ''); // Remove leading slash
+      const primaryUrl = `${cleanApiUrl}/${cleanProofFile}`;
       // Fallback: proxy via backend /api/uploads (always proxied by Nginx)
-      const fallbackUrl = `${API_URL}/api/${proofFile}`;
+      const fallbackUrl = `${cleanApiUrl}/api/${cleanProofFile}`;
 
       setSelectedProof({
         file: proofFile,
@@ -666,7 +976,10 @@ const Savings = () => {
           🌸 Data Simpanan
         </h1>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            setIsSubmitting(false);
+            setShowModal(true);
+          }}
           className="bg-gradient-to-r from-pink-500 to-rose-500 text-white px-4 py-2 sm:px-6 sm:py-3 rounded-lg hover:from-pink-600 hover:to-rose-600 transition-all duration-200 font-medium text-sm sm:text-base shadow-lg hover:shadow-xl"
         >
           ➕ Tambah Simpanan
@@ -716,7 +1029,7 @@ const Savings = () => {
 
       {/* Filter dan Search */}
       <div className="bg-white rounded-lg shadow border border-pink-100 p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           {/* Search by Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -748,15 +1061,28 @@ const Savings = () => {
             </select>
           </div>
 
-          {/* Filter by Date */}
+          {/* Filter by Start Date */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              📅 Filter Tanggal
+              📅 Tanggal Mulai
             </label>
             <input
               type="date"
-              value={dateFilter}
-              onChange={(e) => handleFilterChange("date", e.target.value)}
+              value={startDate}
+              onChange={(e) => handleFilterChange("startDate", e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+            />
+          </div>
+
+          {/* Filter by End Date */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              📅 Tanggal Selesai
+            </label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => handleFilterChange("endDate", e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
             />
           </div>
@@ -767,7 +1093,8 @@ const Savings = () => {
               onClick={() => {
                 setSearchTerm("");
                 setStatusFilter("");
-                setDateFilter("");
+                setStartDate("");
+                setEndDate("");
                 setCurrentPage(1);
               }}
               className="w-full bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 transition-colors"
@@ -840,6 +1167,23 @@ const Savings = () => {
                     </td>
                     <td className="hidden lg:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {saving.installmentPeriod || 1} bulan
+                      <span className="text-gray-500">
+                        {(() => {
+                          const now = new Date();
+                          const period = saving.installmentPeriod || 1;
+                          const projectionDate = new Date(
+                            now.getFullYear(),
+                            now.getMonth() + period,
+                            1
+                          );
+                          return ` (${format(projectionDate, "MMMM yyyy", { locale: id })})`;
+                        })()}
+                      </span>
+                      {saving.attemptNumber && saving.attemptNumber > 1 && (
+                        <div className="text-xs text-orange-500 mt-1">
+                          🔁 Attempt ke-{saving.attemptNumber}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
                       {formatCurrency(saving.amount)}
@@ -883,12 +1227,20 @@ const Savings = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-2">
                         {saving.status === "Pending" && (
-                          <button
-                            onClick={() => handleApprove(saving._id)}
-                            className="text-green-600 hover:text-green-900 transition-colors"
-                          >
-                            ✅ Approve
-                          </button>
+                          <>
+                            <button
+                              onClick={() => handleApprove(saving._id)}
+                              className="text-green-600 hover:text-green-900 transition-colors"
+                            >
+                              ✅ Approve
+                            </button>
+                            <button
+                              onClick={() => handleReject(saving)}
+                              className="text-red-600 hover:text-red-900 transition-colors"
+                            >
+                              ❌ Reject
+                            </button>
+                          </>
                         )}
                         <button
                           onClick={() => handleEdit(saving)}
@@ -913,7 +1265,7 @@ const Savings = () => {
                       <span className="text-4xl mb-4 block">📊</span>
                       <p className="text-lg font-medium">Tidak Ada Data</p>
                       <p className="text-sm">
-                        {searchTerm || statusFilter || dateFilter
+                        {searchTerm || statusFilter || startDate || endDate
                           ? "Tidak ada data yang sesuai dengan filter"
                           : "Belum ada data simpanan"}
                       </p>
@@ -1213,11 +1565,8 @@ const Savings = () => {
                         setErrors({ ...errors, productId: "" });
                       }
                     }}
-                    disabled={!editingId && formData.memberId && formData.productId} // 🔒 Lock setelah auto-fill
                     className={`mt-1 block w-full rounded-md shadow-sm focus:ring-blue-500 ${
-                      !editingId && formData.memberId && formData.productId
-                        ? "bg-gray-100 border-gray-300 text-gray-600 cursor-not-allowed" // 🔒 Style locked
-                        : errors.productId
+                      errors.productId
                         ? "border-red-300 focus:border-red-500 bg-red-50"
                         : "border-gray-300 focus:border-blue-500"
                     }`}
@@ -1235,12 +1584,6 @@ const Savings = () => {
                     <p className="mt-1 text-sm text-red-600 flex items-center">
                       <span className="mr-1">⚠️</span>
                       {errors.productId}
-                    </p>
-                  )}
-                  {!editingId && formData.memberId && formData.productId && (
-                    <p className="mt-1 text-sm text-green-600 flex items-center">
-                      <span className="mr-1">🔒</span>
-                      Produk dikunci otomatis berdasarkan anggota yang dipilih
                     </p>
                   )}
                 </div>
@@ -1263,11 +1606,8 @@ const Savings = () => {
                           setErrors({ ...errors, installmentPeriod: "" });
                         }
                       }}
-                      disabled={!editingId && formData.memberId && formData.productId} // 🔒 Lock setelah auto-fill
                       className={`mt-1 block w-full rounded-md shadow-sm focus:ring-blue-500 ${
-                        !editingId && formData.memberId && formData.productId
-                          ? "bg-gray-100 border-gray-300 text-gray-600 cursor-not-allowed" // 🔒 Style locked
-                          : errors.installmentPeriod
+                        errors.installmentPeriod
                           ? "border-red-300 focus:border-red-500 bg-red-50"
                           : "border-gray-300 focus:border-blue-500"
                       }`}
@@ -1279,10 +1619,12 @@ const Savings = () => {
                         {errors.installmentPeriod}
                       </p>
                     )}
-                    {!editingId && formData.memberId && formData.productId && (
-                      <p className="mt-1 text-sm text-green-600 flex items-center">
-                        <span className="mr-1">🔒</span>
-                        Periode dikunci otomatis (periode terakhir: {lastPeriod})
+                    {retryInfo?.isRetry && retryInfo.period === formData.installmentPeriod && (
+                      <p className="mt-1 text-sm text-orange-500 flex items-center">
+                        <span className="mr-1">🔁</span>
+                        {retryInfo.previousAttempts > 0
+                          ? `Periode ${formData.installmentPeriod} sudah pernah ditolak ${retryInfo.previousAttempts} kali. Ini percobaan ke-${retryInfo.nextAttempt}.`
+                          : `Periode ${formData.installmentPeriod} percobaan ulang.`}
                       </p>
                     )}
                     {lastPeriod > 0 && !errors.installmentPeriod && editingId && (
@@ -1309,11 +1651,8 @@ const Savings = () => {
                           setErrors({ ...errors, amount: "" });
                         }
                       }}
-                      disabled={!editingId && formData.memberId && formData.productId && formData.amount} // 🔒 Lock setelah auto-fill
                       className={`mt-1 block w-full rounded-md shadow-sm focus:ring-blue-500 ${
-                        !editingId && formData.memberId && formData.productId && formData.amount
-                          ? "bg-gray-100 border-gray-300 text-gray-600 cursor-not-allowed" // 🔒 Style locked
-                          : errors.amount
+                        errors.amount
                           ? "border-red-300 focus:border-red-500 bg-red-50"
                           : "border-gray-300 focus:border-blue-500"
                       }`}
@@ -1323,12 +1662,6 @@ const Savings = () => {
                       <p className="mt-1 text-sm text-red-600 flex items-center">
                         <span className="mr-1">⚠️</span>
                         {errors.amount}
-                      </p>
-                    )}
-                    {!editingId && formData.memberId && formData.productId && formData.amount && (
-                      <p className="mt-1 text-sm text-green-600 flex items-center">
-                        <span className="mr-1">🔒</span>
-                        Jumlah dikunci otomatis sesuai nominal upgrade/paket ({formatCurrency(formData.amount)})
                       </p>
                     )}
                     {formData.productId && !editingId && !formData.amount && !errors.amount && (
@@ -1431,12 +1764,22 @@ const Savings = () => {
                     onChange={(e) =>
                       setFormData({ ...formData, status: e.target.value })
                     }
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    className={`mt-1 block w-full rounded-md shadow-sm focus:ring-blue-500 ${
+                      errors.status
+                        ? "border-red-300 focus:border-red-500 bg-red-50"
+                        : "border-gray-300 focus:border-blue-500"
+                    }`}
                   >
                     <option value="Pending">Pending</option>
                     <option value="Approved">Approved</option>
                     <option value="Rejected">Rejected</option>
                   </select>
+                  {errors.status && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center">
+                      <span className="mr-1">⚠️</span>
+                      {errors.status}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -1521,6 +1864,86 @@ const Savings = () => {
           </div>
         </div>
       )}
+
+      {/* Reject Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-2/3 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div className="mt-1">
+              <h3 className="text-lg font-medium leading-6 text-gray-900 mb-2">
+                Tolak Simpanan
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Isi keterangan singkat alasan penolakan. Kolom ini menggunakan field "Keterangan" yang sudah ada.
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Keterangan</label>
+                  <textarea
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value.slice(0, 500))}
+                    rows={4}
+                    maxLength={500}
+                    className="mt-1 block w-full rounded-md shadow-sm border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                    placeholder="Tuliskan alasan penolakan (maks. 500 karakter)"
+                  />
+                  <p className="mt-1 text-xs text-gray-500 text-right">{rejectReason.length}/500 karakter</p>
+                </div>
+
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!rejectSubmitting) {
+                        setShowRejectModal(false);
+                        setRejectTarget(null);
+                        setRejectReason("");
+                      }
+                    }}
+                    disabled={rejectSubmitting}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={submitReject}
+                    disabled={rejectSubmitting}
+                    className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  >
+                    {rejectSubmitting ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Menolak...
+                      </>
+                    ) : (
+                      "Tolak Simpanan"
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Confirmation Dialog */}
+     <ConfirmDialog
+  isOpen={showConfirmDialog}
+  onClose={() => setShowConfirmDialog(false)}
+  onConfirm={confirmDialogConfig.onConfirm}
+  title={confirmDialogConfig.title}
+  message={confirmDialogConfig.message}
+  confirmText={confirmDialogConfig.confirmText}
+  cancelText={confirmDialogConfig.cancelText}
+  type={confirmDialogConfig.type}
+  isLoading={isSubmitting}  // ini tambahan penting
+/>
+
     </div>
   );
 };
