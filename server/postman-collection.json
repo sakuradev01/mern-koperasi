@@ -90,7 +90,37 @@
 					}
 				},
 				{
-					"name": "3. Access Member Dashboard",
+					"name": "3. Access Member Dashboard (with Attempt History)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    console.log('Dashboard periods:', response.length);",
+									"    ",
+									"    // Check for attempt history feature",
+									"    if (response.length > 0 && response[0].attemptHistory !== undefined) {",
+									"        console.log('✅ Attempt History feature available');",
+									"        ",
+									"        response.forEach((period, index) => {",
+									"            if (period.totalAttempts > 0) {",
+									"                console.log(`Period ${period.installment_period}: ${period.totalAttempts} attempts, Status: ${period.lastAttemptStatus}`);",
+									"                if (period.hasRejected) {",
+									"                    console.log(`  ⚠️ Has rejected attempts`);",
+									"                }",
+									"            }",
+									"        });",
+									"    } else {",
+									"        console.log('❌ Attempt History not found in response');",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
 					"request": {
 						"method": "GET",
 						"header": [

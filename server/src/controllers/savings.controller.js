@@ -734,17 +734,49 @@ const getStudentDashboardSavings = asyncHandler(async (req, res) => {
     `Final result: Found ${depositHistory.length} unique savings (all statuses) for member ${member.uuid}`
   ); // Debug
 
-  // Map deposit history by installment period
+  // PERBAIKAN: Map deposit history by installment period + include attempt history
   const realizationAmountMap = {};
   const realizationProofFileMap = {};
   const realizationStatusMap = {};
+  const attemptHistoryMap = {};
+
+  // Get ALL attempts (including rejected) for attempt history
+  const allAttempts = await Savings.find({
+    memberId: member._id,
+    type: "Setoran",
+  }).select("installmentPeriod amount proofFile status attemptNumber createdAt updatedAt description _id")
+    .sort({ installmentPeriod: 1, attemptNumber: 1, createdAt: 1 });
+
+  // Group attempts by period for history
+  const attemptsByPeriod = {};
+  allAttempts.forEach((attempt) => {
+    const period = attempt.installmentPeriod;
+    if (!attemptsByPeriod[period]) {
+      attemptsByPeriod[period] = [];
+    }
+    attemptsByPeriod[period].push(attempt);
+  });
 
   depositHistory.forEach((deposit) => {
     realizationAmountMap[deposit.installmentPeriod] =
       deposit.status === "Approved" ? deposit.amount : 0;
     realizationProofFileMap[deposit.installmentPeriod] = deposit.proofFile || 0;
     realizationStatusMap[deposit.installmentPeriod] = deposit.status || "Pending";
-    console.log(`Period ${deposit.installmentPeriod}: ${deposit.amount} - Status: ${deposit.status}`); // Debug
+    
+    // Add attempt history for this period
+    const periodAttempts = attemptsByPeriod[deposit.installmentPeriod] || [];
+    attemptHistoryMap[deposit.installmentPeriod] = periodAttempts.map((attempt) => ({
+      attemptNumber: attempt.attemptNumber || 1,
+      status: attempt.status,
+      amount: attempt.amount,
+      description: attempt.description,
+      proofFile: attempt.proofFile || null,
+      createdAt: attempt.createdAt,
+      updatedAt: attempt.updatedAt,
+      _id: attempt._id,
+    }));
+    
+    console.log(`Period ${deposit.installmentPeriod}: ${deposit.amount} - Status: ${deposit.status} - Attempts: ${periodAttempts.length}`); // Debug
   });
 
   // PERBAIKAN: Cek upgrade aktif untuk proyeksi yang benar
@@ -804,6 +836,13 @@ const getStudentDashboardSavings = asyncHandler(async (req, res) => {
         : 0,
       payment_proof: realizationProofFileMap[i] || 0,
       status: realizationStatusMap[i] || "Not Submitted",
+      // TAMBAHAN: Include attempt history sama seperti di admin
+      attemptHistory: attemptHistoryMap[i] || [],
+      totalAttempts: (attemptHistoryMap[i] || []).length,
+      hasRejected: (attemptHistoryMap[i] || []).some(attempt => attempt.status === "Rejected"),
+      lastAttemptStatus: (attemptHistoryMap[i] || []).length > 0 
+        ? (attemptHistoryMap[i] || [])[((attemptHistoryMap[i] || []).length - 1)].status
+        : "Not Submitted"
     });
   }
 
