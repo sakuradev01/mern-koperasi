@@ -329,37 +329,64 @@ const createMemberSavings = asyncHandler(async (req, res) => {
       throw new ApiError(400, errorMessage);
     }
 
-    // PERBAIKAN: Cari periode installment terakhir untuk member (semua produk)
+    // PERBAIKAN: Cari periode installment terakhir untuk member + HANDLE RETRY LOGIC
     // Karena setelah upgrade, productId sudah berubah tapi kita perlu lanjut dari periode terakhir
-    const lastSaving = await Savings.findOne({
+    const allAttempts = await Savings.find({
       memberId: member._id,
       type: "Setoran"
-      // HAPUS filter productId agar bisa ambil dari produk lama juga
-    }).sort({ installmentPeriod: -1 });
+    }).sort({ installmentPeriod: -1, attemptNumber: -1, createdAt: -1 });
 
-    // Tentukan periode installment berikutnya
-    const nextPeriod = lastSaving ? lastSaving.installmentPeriod + 1 : 1;
+    const lastNonRejected = allAttempts.find(
+      (attempt) => attempt.status !== "Rejected"
+    );
+    let nextPeriod = lastNonRejected ? lastNonRejected.installmentPeriod + 1 : 1;
+
+    // TAMBAHAN: Check apakah latest attempt rejected untuk retry logic
+    const latestAttempt = allAttempts[0];
+    let isRetry = false;
+    if (
+      latestAttempt &&
+      latestAttempt.status === "Rejected" &&
+      !allAttempts.some(
+        (attempt) =>
+          attempt.installmentPeriod === latestAttempt.installmentPeriod &&
+          attempt.status !== "Rejected"
+      )
+    ) {
+      // Tidak ada attempt aktif untuk periode tertinggi ⇒ izinkan retry
+      nextPeriod = latestAttempt.installmentPeriod;
+      isRetry = true;
+      console.log(`🔄 Retry detected for rejected period ${nextPeriod}`);
+    }
     
-    console.log(`🔍 Last saving period: ${lastSaving?.installmentPeriod || 'none'}, Next period: ${nextPeriod}`);
+    console.log(`🔍 Last saving period: ${lastNonRejected?.installmentPeriod || 'none'}, Next period: ${nextPeriod}, Is retry: ${isRetry}`);
 
-    // Validasi tidak melebihi termDuration
+    // Validasi tidak melebihi termDuration (kecuali untuk retry)
     if (nextPeriod > product.termDuration) {
       throw new ApiError(400, `Periode simpanan sudah mencapai maksimal (${product.termDuration} periode)`);
     }
 
-    // Cek apakah sudah ada simpanan pending untuk periode ini
-    const existingPendingSaving = await Savings.findOne({
+    // PERBAIKAN: Cek apakah sudah ada attempt non-rejected untuk periode ini
+    const existingAttempts = await Savings.find({
       memberId: member._id,
-      productId: member.productId,
       installmentPeriod: nextPeriod,
-      status: "Pending"
-    });
+      type: "Setoran",
+    }).sort({ attemptNumber: -1, createdAt: -1 });
 
-    if (existingPendingSaving) {
+    const hasActiveAttempt = existingAttempts.some(
+      (attempt) => attempt.status !== "Rejected"
+    );
+
+    if (hasActiveAttempt) {
       throw new ApiError(400, `Sudah ada simpanan pending untuk periode ${nextPeriod}`);
     }
 
+    // Generate attempt number untuk retry
+    const attemptNumber = existingAttempts.length + 1;
+    console.log(`📝 Creating saving for period ${nextPeriod}, attempt ${attemptNumber}`);
+
     // Buat data simpanan baru
+    const retryGroup = `${member._id.toString()}_${member.productId.toString()}_${nextPeriod}`;
     const savingsData = {
       installmentPeriod: nextPeriod,
       memberId: member._id,
@@ -367,9 +394,11 @@ const createMemberSavings = asyncHandler(async (req, res) => {
       amount: amount,
       savingsDate: new Date(),
       type: "Setoran",
-      description: description || `Simpanan periode ${nextPeriod}`,
+      description: description || `Simpanan periode ${nextPeriod}${isRetry ? ' (retry)' : ''}`,
       status: "Pending", // Selalu pending untuk member submission
-      proofFile: req.file ? req.file.path : null
+      proofFile: req.file ? req.file.path : null,
+      retryGroup,
+      attemptNumber
     };
 
     // Simpan ke database
