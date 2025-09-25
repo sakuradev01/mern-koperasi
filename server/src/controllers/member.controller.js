@@ -336,10 +336,12 @@ const createMemberSavings = asyncHandler(async (req, res) => {
       type: "Setoran"
     }).sort({ installmentPeriod: -1, attemptNumber: -1, createdAt: -1 });
 
-    const lastNonRejected = allAttempts.find(
-      (attempt) => attempt.status !== "Rejected"
-    );
-    let nextPeriod = lastNonRejected ? lastNonRejected.installmentPeriod + 1 : 1;
+    // FIXED: Use gap-filling logic untuk member submission (sama seperti admin)
+    const existingPeriods = allAttempts.map(attempt => attempt.installmentPeriod);
+    let nextPeriod = 1;
+    while (existingPeriods.includes(nextPeriod)) {
+      nextPeriod++;
+    }
 
     // TAMBAHAN: Check apakah latest attempt rejected untuk retry logic
     const latestAttempt = allAttempts[0];
@@ -359,7 +361,7 @@ const createMemberSavings = asyncHandler(async (req, res) => {
       console.log(`🔄 Retry detected for rejected period ${nextPeriod}`);
     }
     
-    console.log(`🔍 Last saving period: ${lastNonRejected?.installmentPeriod || 'none'}, Next period: ${nextPeriod}, Is retry: ${isRetry}`);
+    console.log(`🔍 Member submission - Next period: ${nextPeriod}, Is retry: ${isRetry}, Total existing periods: ${existingPeriods.length}`);
 
     // Validasi tidak melebihi termDuration (kecuali untuk retry)
     if (nextPeriod > product.termDuration) {
