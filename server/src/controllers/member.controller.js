@@ -352,11 +352,25 @@ const createMemberSavings = asyncHandler(async (req, res) => {
         nextPeriod++;
       }
 
-      // FIXED: Auto-retry HANYA jika tidak ada gap periode sebelumnya
-      // Jika ada gap, prioritaskan gap filling daripada retry
-      const hasGap = nextPeriod <= Math.max(...existingPeriods);
+      // FIXED: Auto-retry HANYA jika semua periode sebelumnya sudah non-rejected
+      // Cek apakah ada periode sebelum nextPeriod yang statusnya rejected/not-submitted
+      const hasUnresolvedPeriods = existingPeriods.length === 0 ? false : (() => {
+        const maxPeriod = Math.max(...existingPeriods);
+        for (let i = 1; i < nextPeriod; i++) {
+          if (!existingPeriods.includes(i)) {
+            return true; // Ada periode kosong sebelumnya
+          }
+          // Cek apakah periode ini masih rejected
+          const periodAttempts = allAttempts.filter(attempt => attempt.installmentPeriod === i);
+          const hasNonRejected = periodAttempts.some(attempt => attempt.status !== "Rejected");
+          if (!hasNonRejected) {
+            return true; // Periode ini semua rejected
+          }
+        }
+        return false;
+      })();
       
-      if (!hasGap) {
+      if (!hasUnresolvedPeriods) {
         // Tidak ada gap, check auto-retry untuk latest rejected
         const latestAttempt = allAttempts[0];
         if (
@@ -374,7 +388,7 @@ const createMemberSavings = asyncHandler(async (req, res) => {
           console.log(`🔄 Auto-retry detected for rejected period ${nextPeriod}`);
         }
       } else {
-        console.log(`📍 Gap detected, prioritizing gap-fill period ${nextPeriod} over auto-retry`);
+        console.log(`📍 Unresolved periods detected, prioritizing gap-fill period ${nextPeriod} over auto-retry`);
       }
     }
     
