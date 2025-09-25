@@ -338,7 +338,7 @@ const Savings = () => {
       );
       const data = response.data?.data || response.data || {};
       const last = data.lastPeriod ?? 0;
-      const next = data.nextPeriod ?? ((last || 0) + 1);
+      const next = data.nextPeriod ?? 1; // Use backend calculated nextPeriod
       const expectedAmount = data.expectedAmount;
       const upgradeInfo = data.upgradeInfo;
       const isRetry = data.isRetry;

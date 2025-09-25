@@ -160,6 +160,29 @@ const createSavings = asyncHandler(async (req, res) => {
     }).format(amount);
   }
 
+  // FIXED: Auto-detect periode yang benar-benar kosong untuk admin create
+  if (!installmentPeriod || installmentPeriod <= 0) {
+    // Ambil semua periode yang sudah ada untuk member ini
+    const existingPeriods = await Savings.find({
+      memberId,
+      type: "Setoran",
+    }).distinct('installmentPeriod');
+    
+    // Cari periode pertama yang kosong (mulai dari 1)
+    let nextAvailablePeriod = 1;
+    while (existingPeriods.includes(nextAvailablePeriod)) {
+      nextAvailablePeriod++;
+    }
+    
+    // Validasi tidak melebihi term duration
+    if (nextAvailablePeriod > product.termDuration) {
+      throw new ApiError(400, `Sudah mencapai periode maksimal (${product.termDuration})`);
+    }
+    
+    installmentPeriod = nextAvailablePeriod;
+    console.log(`🔍 Admin auto-detect: Using period ${installmentPeriod} (first available gap)`);
+  }
+
   // Check existing attempts for this period (allow retry if semua rejected)
   const attempts = await Savings.find({
     memberId,
@@ -569,7 +592,13 @@ const getLastInstallmentPeriod = asyncHandler(async (req, res) => {
     (attempt) => attempt.status !== "Rejected"
   );
   const lastPeriod = lastNonRejected ? lastNonRejected.installmentPeriod : 0;
-  let nextPeriod = lastPeriod + 1;
+  
+  // FIXED: Use gap-filling logic sama seperti createSavings
+  const existingPeriods = allAttempts.map(attempt => attempt.installmentPeriod);
+  let nextPeriod = 1;
+  while (existingPeriods.includes(nextPeriod)) {
+    nextPeriod++;
+  }
 
   const latestAttempt = allAttempts[0];
   let isRetry = false;

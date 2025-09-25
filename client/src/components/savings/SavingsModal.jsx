@@ -121,10 +121,8 @@ const SavingsModal = ({ isOpen, onClose, onSuccess, savingsData }) => {
         `/api/savings/check-period/${memberId}/${productId}`
       );
       const last = response.data.data.lastPeriod || 0;
+      const nextPeriod = response.data.data.nextPeriod || 1; // Use backend calculated nextPeriod
       setLastPeriod(last);
-
-      // Auto-set next period, but don't override when editing with same original selection
-      const nextPeriod = last + 1;
       const isOriginal =
         originalSelectionRef.current.memberId === memberId &&
         originalSelectionRef.current.productId === productId;
