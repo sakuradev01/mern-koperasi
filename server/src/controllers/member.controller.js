@@ -329,39 +329,56 @@ const createMemberSavings = asyncHandler(async (req, res) => {
       throw new ApiError(400, errorMessage);
     }
 
-    // PERBAIKAN: Cari periode installment terakhir untuk member + HANDLE RETRY LOGIC
-    // Karena setelah upgrade, productId sudah berubah tapi kita perlu lanjut dari periode terakhir
-    const allAttempts = await Savings.find({
-      memberId: member._id,
-      type: "Setoran"
-    }).sort({ installmentPeriod: -1, attemptNumber: -1, createdAt: -1 });
-
-    // FIXED: Use gap-filling logic untuk member submission (sama seperti admin)
-    const existingPeriods = allAttempts.map(attempt => attempt.installmentPeriod);
+    // PERBAIKAN: Check apakah ada installment_period spesifik dari request (untuk resubmit)
     let nextPeriod = 1;
-    while (existingPeriods.includes(nextPeriod)) {
-      nextPeriod++;
-    }
-
-    // TAMBAHAN: Check apakah latest attempt rejected untuk retry logic
-    const latestAttempt = allAttempts[0];
     let isRetry = false;
-    if (
-      latestAttempt &&
-      latestAttempt.status === "Rejected" &&
-      !allAttempts.some(
-        (attempt) =>
-          attempt.installmentPeriod === latestAttempt.installmentPeriod &&
-          attempt.status !== "Rejected"
-      )
-    ) {
-      // Tidak ada attempt aktif untuk periode tertinggi ⇒ izinkan retry
-      nextPeriod = latestAttempt.installmentPeriod;
+    
+    if (req.body.installment_period && parseInt(req.body.installment_period) > 0) {
+      // FIXED: Ada installment_period spesifik dari resubmit → gunakan itu
+      nextPeriod = parseInt(req.body.installment_period);
       isRetry = true;
-      console.log(`🔄 Retry detected for rejected period ${nextPeriod}`);
+      console.log(`📌 Specific period from resubmit request: ${nextPeriod}`);
+    } else {
+      // Auto-detect untuk submission baru
+      const allAttempts = await Savings.find({
+        memberId: member._id,
+        type: "Setoran"
+      }).sort({ installmentPeriod: -1, attemptNumber: -1, createdAt: -1 });
+
+      // FIXED: Use gap-filling logic untuk member submission (sama seperti admin)
+      const existingPeriods = allAttempts.map(attempt => attempt.installmentPeriod);
+      nextPeriod = 1;
+      while (existingPeriods.includes(nextPeriod)) {
+        nextPeriod++;
+      }
+
+      // FIXED: Auto-retry HANYA jika tidak ada gap periode sebelumnya
+      // Jika ada gap, prioritaskan gap filling daripada retry
+      const hasGap = nextPeriod <= Math.max(...existingPeriods);
+      
+      if (!hasGap) {
+        // Tidak ada gap, check auto-retry untuk latest rejected
+        const latestAttempt = allAttempts[0];
+        if (
+          latestAttempt &&
+          latestAttempt.status === "Rejected" &&
+          !allAttempts.some(
+            (attempt) =>
+              attempt.installmentPeriod === latestAttempt.installmentPeriod &&
+              attempt.status !== "Rejected"
+          )
+        ) {
+          // Tidak ada attempt aktif untuk periode tertinggi ⇒ izinkan retry
+          nextPeriod = latestAttempt.installmentPeriod;
+          isRetry = true;
+          console.log(`🔄 Auto-retry detected for rejected period ${nextPeriod}`);
+        }
+      } else {
+        console.log(`📍 Gap detected, prioritizing gap-fill period ${nextPeriod} over auto-retry`);
+      }
     }
     
-    console.log(`🔍 Member submission - Next period: ${nextPeriod}, Is retry: ${isRetry}, Total existing periods: ${existingPeriods.length}`);
+    console.log(`🔍 Member submission - Next period: ${nextPeriod}, Is retry: ${isRetry}`);
 
     // Validasi tidak melebihi termDuration (kecuali untuk retry)
     if (nextPeriod > product.termDuration) {
